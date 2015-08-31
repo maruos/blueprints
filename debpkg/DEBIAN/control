@@ -1,0 +1,8 @@
+Package: maru
+Version: 0.1-1
+Section: x11
+Priority: optional
+Architecture: all
+Depends:
+Maintainer: Preetam D'Souza <preetamjdsouza@gmail.com>
+Description: Userspace components for Maru Linux
