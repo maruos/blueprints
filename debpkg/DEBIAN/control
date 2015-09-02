@@ -3,6 +3,6 @@ Version: 0.1-1
 Section: x11
 Priority: optional
 Architecture: all
-Depends:
+Depends: libc6, libx11-6, libxfixes3, libxext6, libxdamage1, libxi6
 Maintainer: Preetam D'Souza <preetamjdsouza@gmail.com>
 Description: Userspace components for Maru Linux

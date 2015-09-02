@@ -5,7 +5,7 @@ ARCH=all
 PKG=$(NAME)_$(VERSION)-$(PKG_VERSION)_$(ARCH).deb
 
 pkg:
-	dpkg-deb --build debpkg/
+	fakeroot dpkg-deb --build debpkg/
 	mv debpkg.deb $(PKG)
 
 lint: pkg

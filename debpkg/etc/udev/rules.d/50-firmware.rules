@@ -1,0 +1,17 @@
+# This file is left empty to override /lib/udev/rules.d/50-firmware.rules
+#
+# tl;dr video playback (e.g. YouTube) does not work on Android since udevd
+#       mistakenly responds to firmware load uevents...force it to
+#       ignore firmware uevents and things work!
+#
+# Some Android device drivers make use of dynamic kernel firmware loading, such
+# as Qualcomm's msm_vidc driver does to load "venus" firmware images for playing
+# back video for YouTube.
+#
+# The kernel makes use of events to inform a userspace helper to do the actual
+# firmware loading. Unfortunately, instead of Android's native ueventd daemon
+# processing the uevent, Linux's udevd mistakenly picks it up and returns failure
+# since it obviously cannot find the requested firmware blobs in its isolated rootfs.
+#
+# This override file ensures that udevd completely ignores firmware uevents.
+#
