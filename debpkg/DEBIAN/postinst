@@ -1,0 +1,42 @@
+#!/bin/sh -e
+#
+# Maru Linux initialization.
+#
+# Error handling
+# --------------
+#
+# This needs to be idempotent.
+#
+# Creating a user that already exists returns failure so we use
+# "id" to check if the user exists first.
+#
+# We ignore group creation failures ("|| true") since the subsequent
+# adduser <user> <group> will fail if the group does not exist.
+#
+
+echo "Running maru postint script!"
+
+# create default user account
+id -u maru || adduser maru
+
+# sudo rights
+adduser maru sudo
+
+# internet access
+addgroup --gid 3003 inet || true
+adduser maru inet
+
+# raw sockets (ping)
+addgroup --gid 3004 inet_raw || true
+adduser maru inet_raw
+
+# sdcard read permissions
+addgroup --gid 1028 sdcard_r || true
+adduser maru sdcard_r
+
+# tell systemd to start mclient on startup
+systemctl enable mclient
+
+#DEBHELPER#
+
+exit 0
