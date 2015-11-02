@@ -1,7 +1,7 @@
 NAME=maru
 VERSION=0.1
 PKG_VERSION=1
-ARCH=all
+ARCH=armhf
 PKG=$(NAME)_$(VERSION)-$(PKG_VERSION)_$(ARCH).deb
 
 pkg:

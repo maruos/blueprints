@@ -14,28 +14,62 @@
 # adduser <user> <group> will fail if the group does not exist.
 #
 
-echo "Running maru postint script!"
+USER="maru"
+HOSTNAME="jessie"
+
+# make sure the hostname is set correctly
+hostnamectl set-hostname "$HOSTNAME"
 
 # create default user account
-id -u maru || adduser maru
+id -u "$USER" || adduser "$USER"
 
 # sudo rights
-adduser maru sudo
+adduser "$USER" sudo
 
 # internet access
 addgroup --gid 3003 inet || true
-adduser maru inet
+adduser "$USER" inet
 
 # raw sockets (ping)
 addgroup --gid 3004 inet_raw || true
-adduser maru inet_raw
+adduser "$USER" inet_raw
 
-# sdcard read permissions
+# sdcard read permissions (TODO add root?)
 addgroup --gid 1028 sdcard_r || true
-adduser maru sdcard_r
+adduser "$USER" sdcard_r
 
 # tell systemd to start mclient on startup
 systemctl enable mclient
+
+
+### LightDM configuration ###
+
+mv /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+
+cat > /etc/lightdm/lightdm.conf <<EOF
+[SeatDefaults]
+autologin-user=$USER
+EOF
+
+### XFCE tweaks ###
+
+# make sure $USER owns everything
+chown -R "$USER":"$USER" /var/maru
+
+# sync xfce settings (trailing slash is important!)
+rsync -a /var/maru/ "/home/$USER"
+
+# remove Audio Mixer app
+echo "Hidden=true" >> /usr/share/applications/xfce4-mixer.desktop
+
+# remove Log Out app
+echo "Hidden=true" >> /usr/share/applications/xfce4-session-logout.desktop
+
+# custom applications panel
+# note: we are forced to overrride the default menu because desktop
+# left-click applications menu cannot use a custom menu file
+mv /etc/xdg/menus/xfce-applications.menu /etc/xdg/menus/xfce-applications.menu.backup
+mv /etc/xdg/menus/maru-applications.menu /etc/xdg/menus/xfce-applications.menu
 
 #DEBHELPER#
 

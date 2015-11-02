@@ -1,0 +1,13 @@
+#!/bin/bash -e
+#
+# Clean up any files created during install.
+#
+
+# remove the backports we added in preinst
+rm /etc/apt/sources.list.d/backports.list
+
+# retore original lightdm.conf
+mv /etc/lightdm/lightdm.conf.backup /etc/lightdm/lightdm.conf
+
+# restore original applications panel
+mv /etc/xdg/menus/xfce-applications.menu.backup /etc/xdg/menus/xfce-applications.menu

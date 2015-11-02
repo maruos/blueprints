@@ -2,10 +2,15 @@ Package: maru
 Version: 0.1-1
 Section: x11
 Priority: optional
-Architecture: all
+Architecture: armhf
 Depends: libc6, libx11-6, libxfixes3, libxext6, libxdamage1, libxi6, libxrandr2,
-    xserver-xorg-video-dummy, xfce4, lightdm,
-    sudo, iputils-ping,
+    xserver-xorg-video-dummy,
+    xfce4, xfce4-terminal, xfce4-screenshooter,
+    lxtask,
+    lightdm,
+    sudo, iputils-ping, rsync,
+    gcc, python,
+    vim, git,
     iceweasel, libreoffice
 Maintainer: Preetam D'Souza <preetamjdsouza@gmail.com>
-Description: Userspace components for Maru Linux
+Description: Userspace components for Maru Desktop
