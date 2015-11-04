@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Phone
+Comment=Access your phone's internal storage
+Exec=exo-open --launch FileManager /mnt/Phone
+Icon=folder
+Path=
+Terminal=false
+StartupNotify=false
+Name[en_US.UTF-8]=Phone
