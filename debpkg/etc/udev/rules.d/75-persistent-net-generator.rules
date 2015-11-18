@@ -1,0 +1,24 @@
+# This file is left empty to override /lib/udev/rules.d/75-persistent-net-generator.rules
+#
+# tl;dr If you start Maru Desktop with WiFi turned off, you can never turn WiFi back
+#       on till a reboot! Override udev's interface renaming to fix.
+#
+# Android assigns random MAC addresses for the wlan0 WiFi interface if WiFi is turned off.
+# These MAC addresses have the form 00:90:4c:**:**:**, with the first three octets constant
+# and the remaining three octets being random. When you turn on WiFi, the MAC switches to the
+# true constant HW MAC of the device.
+#
+# The first time you start Maru Desktop, udev adds a matching rule for wlan0’s MAC under
+# /etc/udev/rules.d/70-persistent-net.rules since it doesn’t recognize the interface.
+# This rule makes sure that the interface with this MAC is always assigned “wlan0” as the
+# interface name, even if another interface is added first. If a new interface is added with
+# a different MAC address, even if it is originally named wlan0, udev will rename it to wlanX,
+# with X incrementing for each new MAC address found.
+#
+# This leads to the condition where starting the desktop with WiFi off and a random MAC adds
+# a new persistent net rule and a renaming of the interface to wlanX. If you now try to turn WiFi
+# on in Android, it fails because Android can no longer find wlan0.
+#
+# The solution here is to override /lib/udev/rules.d/75-persistent-net-generator.rules with an empty
+# file in /etc/udev/rules.d/ to prevent these renaming rules from automatically being added.
+#

@@ -38,9 +38,31 @@ adduser "$USER" inet_raw
 addgroup --gid 1028 sdcard_r || true
 adduser "$USER" sdcard_r
 
-# tell systemd to start mclient on startup
+## systemd ##
+
+# disable networking services (ifup/ifdown)
+# This is harmless as everything still works with this enabled,
+# but only Android should do network interface configuration.
+systemctl stop networking
+systemctl daemon-reload
+systemctl disable networking
+
+# disable sshd services
+systemctl stop ssh
+systemctl disable ssh
+
+# start mclient service on startup
 systemctl enable mclient
 
+## udev ##
+
+# remove any persistent interface naming rules
+# This can be created when building Maru Desktop before
+# our override kicks in.
+PERSISTENT_NET_RULES="/etc/udev/rules.d/70-persistent-net.rules"
+if [ -f "$PERSISTENT_NET_RULES" ] ; then
+    rm "$PERSISTENT_NET_RULES"
+fi
 
 ### LightDM configuration ###
 
@@ -56,7 +78,7 @@ EOF
 # make sure $USER owns everything
 chown -R "$USER":"$USER" /var/maru
 
-# sync xfce settings (trailing slash is important!)
+# sync home directory config and settings (trailing slash is important!)
 rsync -a /var/maru/ "/home/$USER"
 
 # remove Audio Mixer app
