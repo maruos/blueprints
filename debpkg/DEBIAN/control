@@ -5,12 +5,16 @@ Priority: optional
 Architecture: armhf
 Depends: libc6, libx11-6, libxfixes3, libxext6, libxdamage1, libxi6, libxrandr2,
     xserver-xorg-video-dummy,
-    xfce4, xfce4-terminal, xfce4-screenshooter,
-    lxtask,
+    xfce4,
     lightdm,
-    sudo, iputils-ping, rsync,
+    sudo, rsync
+Recommends: xfce4-terminal, xfce4-screenshooter,
+    lxtask,
+    iputils-ping,
     gcc, python,
     vim, git,
-    iceweasel, libreoffice
+    iceweasel,
+    libreoffice,
+    ristretto
 Maintainer: Preetam D'Souza <preetamjdsouza@gmail.com>
 Description: Userspace components for Maru Desktop
