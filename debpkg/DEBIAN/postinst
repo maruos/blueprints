@@ -93,6 +93,16 @@ echo "Hidden=true" >> /usr/share/applications/xfce4-session-logout.desktop
 mv /etc/xdg/menus/xfce-applications.menu /etc/xdg/menus/xfce-applications.menu.backup
 mv /etc/xdg/menus/maru-applications.menu /etc/xdg/menus/xfce-applications.menu
 
+### Iceweasel configuration ###
+
+cp /etc/iceweasel/pref/iceweasel.js /etc/iceweasel/pref/iceweasel.js.backup
+
+cat >> /etc/iceweasel/pref/iceweasel.js <<EOF
+
+// Force desktop versions of websites by hiding armv7l
+pref("general.useragent.override", "Mozilla/5.0 (X11; Linux; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1");
+EOF
+
 #DEBHELPER#
 
 exit 0
