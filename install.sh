@@ -8,13 +8,12 @@ apt-get update
 
 # first install "Recommends" since we
 # overwrite some /etc config files
-apt-get install xfce4-terminal xfce4-screenshooter \
-    lxtask \
-    iputils-ping \
-    gcc python \
-    vim git \
+apt-get install xfce4-terminal \
+    vim-tiny \
     iceweasel \
-    libreoffice \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
     ristretto
 
 # install maru package (this will always return failed exit status)
@@ -22,3 +21,13 @@ dpkg -i maru_* || true
 
 # install all missing packages in "Depends"
 apt-get install -f
+
+## shrink the rootfs as much as possible ##
+
+# clean cached packages
+apt-get autoremove
+apt-get autoclean
+apt-get clean
+
+# clean package lists (this can be recreated with apt-get update)
+rm -rf /var/lib/apt/lists/*
