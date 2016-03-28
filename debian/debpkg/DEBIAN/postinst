@@ -2,8 +2,9 @@
 #
 # Maru Linux initialization.
 #
-# Error handling
-# --------------
+# This may be run before the entire system is up and running,
+# (e.g. cross-bootstrap image build) so don't rely on any commands
+# like systemctl.
 #
 # This needs to be idempotent.
 #
@@ -15,13 +16,15 @@
 #
 
 USER="maru"
-HOSTNAME="jessie"
 
-# make sure the hostname is set correctly
-hostnamectl set-hostname "$HOSTNAME"
+set -x
 
 # create default user account
-id -u "$USER" || adduser "$USER"
+if ! id -u "$USER" ; then
+    adduser --disabled-password --gecos "" "$USER"
+    # default password is username
+    echo "${USER}:${USER}" | chpasswd
+fi
 
 # sudo rights
 adduser "$USER" sudo
@@ -34,25 +37,27 @@ adduser "$USER" inet
 addgroup --gid 3004 inet_raw || true
 adduser "$USER" inet_raw
 
-# sdcard read permissions (TODO add root?)
+# sdcard read permissions
 addgroup --gid 1028 sdcard_r || true
 adduser "$USER" sdcard_r
 
 ## systemd ##
 
-# disable networking services (ifup/ifdown)
 # This is harmless as everything still works with this enabled,
 # but only Android should do network interface configuration.
-systemctl stop networking
-systemctl daemon-reload
-systemctl disable networking
+# systemd networking.service (ifup/ifdown) syncs with sysvinit
+# so disable it using update-rc.d
+/usr/sbin/update-rc.d networking disable
 
-# disable sshd services
-systemctl stop ssh
-systemctl disable ssh
+# disable sshd services by default
+# systemd syncs with sysvinit so use update-rc.d too
+/usr/sbin/update-rc.d ssh disable
+if [ -e /etc/systemd/system/sshd.service ] ; then
+    rm /etc/systemd/system/sshd.service
+fi
 
 # start mclient service on startup
-systemctl enable mclient
+ln -s /lib/systemd/system/mclient.service /etc/systemd/system/multi-user.target.wants/mclient.service
 
 ## udev ##
 
@@ -66,12 +71,14 @@ fi
 
 ### LightDM configuration ###
 
-mv /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+if [ -e /etc/lightdm/lightdm.conf ] ; then
+    mv /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
 
-cat > /etc/lightdm/lightdm.conf <<EOF
+    cat > /etc/lightdm/lightdm.conf <<EOF
 [SeatDefaults]
 autologin-user=$USER
 EOF
+fi
 
 ### XFCE tweaks ###
 
@@ -82,26 +89,34 @@ chown -R "$USER":"$USER" /var/maru
 rsync -a /var/maru/ "/home/$USER"
 
 # remove Audio Mixer app
-echo "Hidden=true" >> /usr/share/applications/xfce4-mixer.desktop
+if [ -e /usr/share/applications/xfce4-mixer.desktop ] ; then
+    echo "Hidden=true" >> /usr/share/applications/xfce4-mixer.desktop
+fi
 
 # remove Log Out app
-echo "Hidden=true" >> /usr/share/applications/xfce4-session-logout.desktop
+if [ -e /usr/share/applications/xfce4-session-logout.desktop ] ; then
+    echo "Hidden=true" >> /usr/share/applications/xfce4-session-logout.desktop
+fi
 
 # custom applications panel
 # note: we are forced to overrride the default menu because desktop
 # left-click applications menu cannot use a custom menu file
-mv /etc/xdg/menus/xfce-applications.menu /etc/xdg/menus/xfce-applications.menu.backup
+if [ -e  /etc/xdg/menus/xfce-applications.menu ] ; then
+    mv /etc/xdg/menus/xfce-applications.menu /etc/xdg/menus/xfce-applications.menu.backup
+fi
 mv /etc/xdg/menus/maru-applications.menu /etc/xdg/menus/xfce-applications.menu
 
 ### Iceweasel configuration ###
 
-cp /etc/iceweasel/pref/iceweasel.js /etc/iceweasel/pref/iceweasel.js.backup
+if [ -e /etc/iceweasel/pref/iceweasel.js ] ; then
+    cp /etc/iceweasel/pref/iceweasel.js /etc/iceweasel/pref/iceweasel.js.backup
 
-cat >> /etc/iceweasel/pref/iceweasel.js <<EOF
+    cat >> /etc/iceweasel/pref/iceweasel.js <<EOF
 
 // Force desktop versions of websites by hiding armv7l
 pref("general.useragent.override", "Mozilla/5.0 (X11; Linux; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1");
 EOF
+fi
 
 #DEBHELPER#
 
