@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Phone
+Name=sdcard
 Comment=Access your phone's internal storage
-Exec=exo-open --launch FileManager /mnt/Phone
+Exec=exo-open --launch FileManager /mnt/sdcard
 Icon=folder
 Path=
 Terminal=false
 StartupNotify=false
-Name[en_US.UTF-8]=Phone
+Name[en_US.UTF-8]=sdcard
