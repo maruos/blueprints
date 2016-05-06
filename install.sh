@@ -8,7 +8,7 @@ apt-get update
 
 # first install "Recommends" since we
 # overwrite some /etc config files
-apt-get install xfce4-terminal \
+apt-get -y install xfce4-terminal \
     vim-tiny \
     iceweasel \
     libreoffice-writer \
@@ -20,7 +20,10 @@ apt-get install xfce4-terminal \
 dpkg -i maru_* || true
 
 # install all missing packages in "Depends"
-apt-get install -f
+apt-get -y install -f
+
+# get rid of xscreensaver and annoying warning
+apt-get -y purge xscreensaver xscreensaver-data
 
 ## shrink the rootfs as much as possible ##
 
