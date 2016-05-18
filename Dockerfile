@@ -13,10 +13,7 @@ RUN apt-get update && apt-get install -y \
 && rm -rf /var/lib/apt/lists/*
 
 ENV MARU_WORKSPACE /var/maru
-ENV MARU_OUT ${MARU_WORKSPACE}/out
-ENV MARU_TEMPLATES ${MARU_WORKSPACE}/lxc/templates
-
-RUN mkdir -p ${MARU_WORKSPACE} && mkdir -p ${MARU_OUT}
+RUN mkdir -p ${MARU_WORKSPACE}
 WORKDIR ${MARU_WORKSPACE}
 COPY . ${MARU_WORKSPACE}
 

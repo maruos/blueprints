@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
 #
-# Build container images for Maru
+# Build container images for Maru.
+#
+# Most of the actual image building logic is left to blueprint "plugins".
 #
 
 print_help () {
@@ -10,13 +12,11 @@ Build container images for Maru
 
 Usage: build.sh [OPTIONS]
 
-    -t, --template  Distro template to use, currently only 'debian'.
-                    Defaults to debian.
-                    This will search maru custom templates first before
-                    resorting to LXC default templates.
+    -b, --blueprint     Blueprint to use, currently only 'debian'.
+                        Defaults to debian.
 
-    -n, --name      Container name.
-                    This is used to set /etc/hostname in the rootfs.
+    -n, --name          Optional container name. Defaults to blueprint name.
+                        This is used to set /etc/hostname in the rootfs.
 EOF
 }
 
@@ -24,29 +24,16 @@ mecho () {
     echo "--> ${1}"
 }
 
-
-bootstrap_lxc () {
-    # must be an absolute path for custom template location
-    local template="$1"
-    local name="$2"
-    local dir="$3"
-    local arch="${4:-armhf}"
-
-    lxc-create -t "$template" -n "$name" --dir "$dir" -- -a "$arch"
-}
-
-set -x
-
-OPT_TEMPLATE="debian"
-OPT_NAME="$OPT_TEMPLATE"
+OPT_BLUEPRINT="debian"
+OPT_NAME="$OPT_BLUEPRINT"
 while true; do
     case $1 in
-        -t|--template)
+        -b|--blueprint)
             if [ -n "$2" ] ; then
-                OPT_TEMPLATE="$2"
+                OPT_BLUEPRINT="$2"
                 shift
             else
-                echo >&2 "Error: --template requires a non-empty option argument"
+                echo >&2 "Error: --blueprint requires a non-empty option argument"
                 exit 2
             fi
             ;;
@@ -75,14 +62,9 @@ while true; do
     shift
 done
 
-ROOTFS_DIR="${MARU_OUT}/${OPT_NAME}/rootfs"
-ROOTFS_TAR="${MARU_OUT}/${OPT_NAME}.tar.gz"
-
-export DEBIAN_FRONTEND=noninteractive 
-export DEBCONF_NONINTERACTIVE_SEEN=true
-export LC_ALL=C 
-export LANGUAGE=C 
-export LANG=C 
+OUT_DIR="$(pwd)/out"
+ROOTFS_DIR="${OUT_DIR}/${OPT_NAME}/rootfs"
+ROOTFS_TAR="${OUT_DIR}/${OPT_NAME}.tar.gz"
 
 # can't mount this during docker build since it requires privilege...
 if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
@@ -91,27 +73,20 @@ if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
     update-binfmts --enable
 fi
 
-mecho "bootstrapping a minimal rootfs..."
-# prefer to use our custom templates
-template="${MARU_TEMPLATES}/${OPT_TEMPLATE}.sh"
-if [ ! -e "$template" ] ; then
-    # ...but fall back to default templates
-    template="$OPT_TEMPLATE"
+plugin="$(pwd)/blueprint/${OPT_BLUEPRINT}/plugin.sh"
+if [ ! -e "$plugin" ] ; then
+    echo >&2 "${OPT_BLUEPRINT} isn't a valid blueprint!"
+    exit 2
 fi
-bootstrap_lxc "$template" "$OPT_NAME" "$ROOTFS_DIR"
 
-mecho "installing maru configuration in rootfs..."
-if [ -d "$OPT_TEMPLATE" ] ; then
-    pushd >/dev/null "$OPT_TEMPLATE"
-    mecho "building maru debpkg..."
-    make
-    cp maru*.deb "${ROOTFS_DIR}/tmp"
-    cp configure.sh "${ROOTFS_DIR}/tmp"
-    chroot "$ROOTFS_DIR" bash -c "cd /tmp && ./configure.sh"
-    popd >/dev/null
-else
-    echo >&2 "Warning: cannot find config dir for ${OPT_TEMPLATE}, skipping configuration..."
-fi
+mecho "loading distro plugin..."
+pushd >/dev/null "$(dirname "$plugin")"
+source $plugin
+
+mecho "building image..."
+plugin_go "$OPT_NAME" "$ROOTFS_DIR"
+
+popd >/dev/null
 
 mecho "creating a rootfs compressed archive..."
 tar czf "$ROOTFS_TAR" -C "$(dirname "$ROOTFS_DIR")" "$(basename "$ROOTFS_DIR")"

@@ -17,8 +17,6 @@
 
 USER="maru"
 
-set -x
-
 # create default user account
 if ! id -u "$USER" ; then
     adduser --disabled-password --gecos "" "$USER"
