@@ -17,4 +17,4 @@ RUN mkdir -p ${MARU_WORKSPACE}
 WORKDIR ${MARU_WORKSPACE}
 COPY . ${MARU_WORKSPACE}
 
-CMD ./build.sh -t debian -n jessie
+CMD ["./build.sh", "-b", "debian", "-n", "jessie"]
