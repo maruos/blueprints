@@ -41,13 +41,23 @@ EOF
     chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT}"
 }
 
-plugin_go () {
+blueprint_build () {
     local name="$1"
     local rootfs="$2"
     local arch="${3:-armhf}"
 
     bootstrap "$name" "$rootfs" "$arch"
     configure "$name" "$rootfs"
+}
+
+blueprint_cleanup () {
+    local name="$1"
+    local rootfs="$2"
+
+    # destroy persistent lxc object
+    if [ -d "/var/lib/lxc/${name}" ] ; then
+        lxc-destroy -n "$name"
+    fi
 }
 
 pecho "loading..."

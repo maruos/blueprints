@@ -70,8 +70,8 @@ ROOTFS_TAR="${OUT_DIR}/${OPT_NAME}.tar.gz"
 if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
     mecho "enabling binfmts for cross-bootstrapping..."
     mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
-    update-binfmts --enable
 fi
+update-binfmts --enable
 
 plugin="$(pwd)/blueprint/${OPT_BLUEPRINT}/plugin.sh"
 if [ ! -e "$plugin" ] ; then
@@ -84,11 +84,14 @@ pushd >/dev/null "$(dirname "$plugin")"
 source $plugin
 
 mecho "building image..."
-plugin_go "$OPT_NAME" "$ROOTFS_DIR"
+blueprint_build "$OPT_NAME" "$ROOTFS_DIR"
 
 popd >/dev/null
 
 mecho "creating a rootfs compressed archive..."
 tar czf "$ROOTFS_TAR" -C "$(dirname "$ROOTFS_DIR")" "$(basename "$ROOTFS_DIR")"
+
+mecho "cleaning up..."
+blueprint_cleanup "$OPT_NAME" "$ROOTFS_DIR"
 
 mecho "Build success! See $ROOTFS_TAR"
