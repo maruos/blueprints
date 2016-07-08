@@ -10,16 +10,21 @@ pecho () {
 
 bootstrap () {
     local name="$1"
-    local dir="$2"
+    local rootfs="$2"
     local arch="${3:-armhf}"
 
     pecho "bootstrapping rootfs..."
-    lxc-create -t "$LXC_TEMPLATE_OVERRIDE" -n "$name" --dir "$dir" -- -a "$arch"
+    lxc-create -t "$LXC_TEMPLATE_OVERRIDE" -n "$name" --dir "$rootfs" -- -a "$arch"
 }
 
 configure () {
     local name="$1"
-    local dir="$2"
+    local rootfs="$2"
+
+    # make sure we have a mirror for installing packages
+    cat >> "${rootfs}/etc/apt/sources.list" <<EOF
+    deb http://httpredir.debian.org/debian jessie main
+EOF
 
     export DEBIAN_FRONTEND=noninteractive
     export DEBCONF_NONINTERACTIVE_SEEN=true
@@ -29,20 +34,20 @@ configure () {
 
     pecho "building maru debpkg..."
     make
-    cp maru*.deb "${ROOTFS_DIR}/tmp"
-    cp "$CHROOT_SCRIPT" "${ROOTFS_DIR}/tmp"
+    cp maru*.deb "${rootfs}/tmp"
 
     pecho "configuring rootfs..."
-    chroot "$ROOTFS_DIR" bash -c "cd /tmp && ./${CHROOT_SCRIPT}"
+    cp "$CHROOT_SCRIPT" "${rootfs}/tmp"
+    chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT}"
 }
 
 plugin_go () {
     local name="$1"
-    local dir="$2"
+    local rootfs="$2"
     local arch="${3:-armhf}"
 
-    bootstrap "$name" "$dir" "$arch"
-    configure "$name" "$dir"
+    bootstrap "$name" "$rootfs" "$arch"
+    configure "$name" "$rootfs"
 }
 
 pecho "loading..."
