@@ -21,10 +21,30 @@ configure () {
     local name="$1"
     local rootfs="$2"
 
+    # make sure we've got a working nameserver
+    # (on a fresh rootfs this may not be set correctly)
+    echo "nameserver 8.8.8.8" > "${rootfs}/etc/resolv.conf"
+
+    # make sure hostname is in /etc/hosts to avoid hostname resolution errors
+    cat > "${rootfs}/etc/hosts" <<EOF
+127.0.0.1   localhost
+127.0.1.1   $(cat "${rootfs}/etc/hostname")
+::1     localhost ip6-localhost ip6-loopback
+ff02::1     ip6-allnodes
+ff02::2     ip6-allrouters
+EOF
+
     # make sure we have a mirror for installing packages
     cat >> "${rootfs}/etc/apt/sources.list" <<EOF
-    deb http://httpredir.debian.org/debian jessie main
+deb http://httpredir.debian.org/debian jessie main
 EOF
+
+    # disable any default.target
+    # (LXC template symlinks to multi-user.target by default)
+    SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
+    if [ -e "$SYSTEMD_DEFAULT_TARGET" ] ; then
+        rm "$SYSTEMD_DEFAULT_TARGET"
+    fi
 
     export DEBIAN_FRONTEND=noninteractive
     export DEBCONF_NONINTERACTIVE_SEEN=true
