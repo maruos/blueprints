@@ -67,7 +67,7 @@ ROOTFS_DIR="${OUT_DIR}/${OPT_NAME}/rootfs"
 ROOTFS_TAR="${OUT_DIR}/${OPT_NAME}.tar.gz"
 
 # can't mount this during docker build since it requires privilege...
-if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
+if ! mount | grep -q 'binfmt_misc' ; then
     mecho "enabling binfmts for cross-bootstrapping..."
     mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
 fi
