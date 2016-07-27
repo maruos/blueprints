@@ -1,14 +1,14 @@
 #!/bin/bash -e
 
 #
-# Build container images for Maru.
+# Build container images for Maru OS.
 #
-# Most of the actual image building logic is left to blueprint "plugins".
+# Most of the actual image building logic is left to blueprint plugins.
 #
 
 print_help () {
     cat <<EOF
-Build container images for Maru
+Build container images for Maru OS
 
 Usage: build.sh [OPTIONS]
 
@@ -63,10 +63,10 @@ while true; do
 done
 
 OUT_DIR="$(pwd)/out"
-ROOTFS_DIR="${OUT_DIR}/${OPT_NAME}/rootfs"
+TMP_DIR="${OUT_DIR}/${OPT_NAME}-intermediates"
+ROOTFS_DIR="${TMP_DIR}/rootfs"
 ROOTFS_TAR="${OUT_DIR}/${OPT_NAME}.tar.gz"
 
-# can't mount this during docker build since it requires privilege...
 if ! mount | grep -q 'binfmt_misc' ; then
     mecho "enabling binfmts for cross-bootstrapping..."
     mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
@@ -81,6 +81,7 @@ fi
 
 mecho "loading distro plugin..."
 pushd >/dev/null "$(dirname "$plugin")"
+
 source $plugin
 
 mecho "building image..."
@@ -93,5 +94,8 @@ tar czf "$ROOTFS_TAR" -C "$(dirname "$ROOTFS_DIR")" "$(basename "$ROOTFS_DIR")"
 
 mecho "cleaning up..."
 blueprint_cleanup "$OPT_NAME" "$ROOTFS_DIR"
+if [ -d "$TMP_DIR" ] ; then
+    rm -rf "$TMP_DIR"
+fi
 
 mecho "Build success! See $ROOTFS_TAR"
