@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/bin/sh
+
+set -e
 
 #
 # do stuff that requires a chroot context
@@ -12,7 +14,7 @@ echo "root:root" | chpasswd
 # install packages
 #
 
-apt-get update
+apt-get clean && apt-get update
 
 # first install "Recommends" since we overwrite some /etc config files
 apt-get -y install xfce4-terminal \
