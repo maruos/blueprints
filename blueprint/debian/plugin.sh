@@ -1,20 +1,43 @@
-PLUGIN_NAME="DEBIAN"
+BLUEPRINT_NAME="DEBIAN"
 
-# tweaks to upstream, must be absolute path
+DEFAULT_ARCH="armhf"
+DEFAULT_RELEASE="jessie"
+
+# tweaks to upstream template, must be absolute path
+# note: this is only used because older versions of LXC do not support
+# cross-debootstrapping in the debian template
 LXC_TEMPLATE_OVERRIDE="$(pwd)/lxc/templates/debian.sh"
+
+# script to run inside the chroot
 CHROOT_SCRIPT="chroot-configure.sh"
 
 pecho () {
-    echo "[ $PLUGIN_NAME ] $1"
+    echo "[ $BLUEPRINT_NAME ] $1"
+}
+
+print_help () {
+    cat <<EOF
+Blueprint for building Debian images.
+
+Debian-specific options:
+
+    -r, --release   Debian release to use as the image base.
+                    Defaults to jessie.
+
+    -a, --arch      Architecture of generated image.
+                    Defaults to armhf.
+EOF
 }
 
 bootstrap () {
     local name="$1"
     local rootfs="$2"
-    local arch="${3:-armhf}"
+    local release="$3"
+    local arch="$4"
 
     pecho "bootstrapping rootfs..."
-    lxc-create -t "$LXC_TEMPLATE_OVERRIDE" -n "$name" --dir "$rootfs" -- -a "$arch"
+    lxc-create -t "$LXC_TEMPLATE_OVERRIDE" -n "$name" --dir "$rootfs" -- \
+        -a "$arch" -r "$release"
 }
 
 configure () {
@@ -34,8 +57,8 @@ ff02::1     ip6-allnodes
 ff02::2     ip6-allrouters
 EOF
 
-    # make sure we have a mirror for installing packages
-    cat >> "${rootfs}/etc/apt/sources.list" <<EOF
+    # make sure we have a dynamic mirror for installing packages
+    cat > "${rootfs}/etc/apt/sources.list" <<EOF
 deb http://httpredir.debian.org/debian jessie main
 EOF
 
@@ -62,17 +85,47 @@ EOF
 }
 
 blueprint_build () {
-    local name="$1"
-    local rootfs="$2"
-    local arch="${3:-armhf}"
+    local name="$1"; shift
+    local rootfs="$1"; shift
 
-    bootstrap "$name" "$rootfs" "$arch"
+    #
+    # parse blueprint-specific options
+    #
+
+    local release="$DEFAULT_RELEASE"
+    local arch="$DEFAULT_ARCH"
+
+    local ARGS="$(getopt -o r:a:h --long release:,arch:,help -n "$BLUEPRINT_NAME" -- "$@")"
+    if [ $? != 0 ] ; then
+        pecho >&2 "Error parsing options!"
+        exit 2
+    fi
+
+    eval set -- "$ARGS"
+
+    while true; do
+        case "$1" in
+            -r|--release) release="$2"; shift 2 ;;
+            -a|--arch) arch="$2"; shift 2 ;;
+            -h|--help) print_help; exit 0 ;;
+            --) shift; break ;;
+        esac
+    done
+
+    #
+    # build!
+    #
+
+    bootstrap "$name" "$rootfs" "$release" "$arch"
     configure "$name" "$rootfs"
 }
 
 blueprint_cleanup () {
     local name="$1"
     local rootfs="$2"
+
+    # clean up any debpkg artifacts
+    make clean >/dev/null
 
     # destroy persistent lxc object
     if [ -d "/var/lib/lxc/${name}" ] ; then

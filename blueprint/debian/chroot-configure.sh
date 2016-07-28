@@ -1,6 +1,14 @@
 #!/bin/sh -e
 
 #
+# do stuff that requires a chroot context
+#
+
+# some versions of LXC set a random root password,
+# so ensure the password is set to 'root'
+echo "root:root" | chpasswd
+
+#
 # install packages
 #
 

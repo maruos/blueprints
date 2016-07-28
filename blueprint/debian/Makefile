@@ -12,4 +12,4 @@ lint: pkg
 	lintian $(PKG)
 
 clean:
-	rm $(PKG)
+	-rm $(PKG)
