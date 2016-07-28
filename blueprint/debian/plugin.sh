@@ -17,8 +17,8 @@
 
 BLUEPRINT_NAME="DEBIAN"
 
-DEFAULT_ARCH="armhf"
 DEFAULT_RELEASE="jessie"
+DEFAULT_ARCH="armhf"
 
 # tweaks to upstream template, must be absolute path
 # note: this is only used because older versions of LXC do not support
@@ -60,6 +60,7 @@ bootstrap () {
 configure () {
     local name="$1"
     local rootfs="$2"
+    local release="$3"
 
     # make sure we've got a working nameserver
     # (on a fresh rootfs this may not be set correctly)
@@ -76,7 +77,7 @@ EOF
 
     # make sure we have a dynamic mirror for installing packages
     cat > "${rootfs}/etc/apt/sources.list" <<EOF
-deb http://httpredir.debian.org/debian jessie main
+deb http://httpredir.debian.org/debian ${release} main
 EOF
 
     # disable any default.target
@@ -134,7 +135,7 @@ blueprint_build () {
     #
 
     bootstrap "$name" "$rootfs" "$release" "$arch"
-    configure "$name" "$rootfs"
+    configure "$name" "$rootfs" "$release"
 }
 
 blueprint_cleanup () {
