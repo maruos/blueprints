@@ -1,5 +1,7 @@
 # Maru OS Container Blueprints
 
+[![Build Status](https://travis-ci.org/maruos/maruos-blueprints.svg?branch=master)](https://travis-ci.org/maruos/maruos-blueprints)
+
 Builds container images for Maru OS based on a set of "blueprints".
 
 ### Blueprints
