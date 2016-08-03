@@ -25,6 +25,8 @@
 
 set -e
 
+MARU_TAG="maru-$(git describe)"
+
 print_help () {
     cat <<EOF
 Build container images for Maru OS
@@ -74,7 +76,7 @@ done
 OUT_DIR="$(pwd)/out"
 TMP_DIR="${OUT_DIR}/${OPT_NAME}-intermediates"
 ROOTFS_DIR="${TMP_DIR}/rootfs"
-ROOTFS_TAR="${OUT_DIR}/${OPT_NAME}.tar.gz"
+ROOTFS_TAR="${OUT_DIR}/${MARU_TAG}-${OPT_NAME}-rootfs.tar.gz"
 
 plugin="$(pwd)/blueprint/${OPT_BLUEPRINT}/plugin.sh"
 if [ ! -e "$plugin" ] ; then
@@ -96,6 +98,11 @@ blueprint_build "$OPT_NAME" "$ROOTFS_DIR" "$@"
 mecho "creating a rootfs compressed archive..."
 tar czf "$ROOTFS_TAR" -C "$(dirname "$ROOTFS_DIR")" "$(basename "$ROOTFS_DIR")"
 
+# prepend hash to release for sanity checks
+sha1="$(sha1sum "$ROOTFS_TAR" | cut -c -8)"
+release="${ROOTFS_TAR%.tar.gz}-${sha1}.tar.gz"
+mv "$ROOTFS_TAR" "$release"
+
 mecho "cleaning up..."
 blueprint_cleanup "$OPT_NAME" "$ROOTFS_DIR"
 if [ -d "$TMP_DIR" ] ; then
@@ -104,4 +111,4 @@ fi
 
 popd >/dev/null
 
-mecho "Build success! See $ROOTFS_TAR"
+mecho "Build success! See $release"
