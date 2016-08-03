@@ -83,9 +83,8 @@ EOF
     # disable any default.target
     # (LXC template symlinks to multi-user.target by default)
     SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
-    if [ -e "$SYSTEMD_DEFAULT_TARGET" ] ; then
-        rm "$SYSTEMD_DEFAULT_TARGET"
-    fi
+    rm -f "$SYSTEMD_DEFAULT_TARGET"
+    ln -s "/lib/systemd/system/graphical.target" "$SYSTEMD_DEFAULT_TARGET"
 
     export DEBIAN_FRONTEND=noninteractive
     export DEBCONF_NONINTERACTIVE_SEEN=true
