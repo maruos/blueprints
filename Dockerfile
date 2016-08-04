@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y \
     binfmt-support \
     debootstrap \
     fakeroot \
+    git \
     lxc \
     make \
     qemu \
