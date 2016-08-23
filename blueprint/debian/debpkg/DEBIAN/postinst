@@ -53,9 +53,9 @@ adduser "$USER" inet
 addgroup --gid 3004 inet_raw || true
 adduser "$USER" inet_raw
 
-# sdcard read permissions
-addgroup --gid 1028 sdcard_r || true
-adduser "$USER" sdcard_r
+# sdcard r/w permissions
+addgroup --gid 1015 sdcard_rw || true
+adduser "$USER" sdcard_rw
 
 ## systemd ##
 
