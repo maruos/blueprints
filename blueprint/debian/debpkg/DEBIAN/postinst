@@ -65,13 +65,6 @@ adduser "$USER" sdcard_rw
 # so disable it using update-rc.d
 /usr/sbin/update-rc.d networking disable
 
-# disable sshd services by default
-# systemd syncs with sysvinit so use update-rc.d too
-/usr/sbin/update-rc.d ssh disable
-if [ -e /etc/systemd/system/sshd.service ] ; then
-    rm /etc/systemd/system/sshd.service
-fi
-
 # start mclient service on startup
 ln -s /lib/systemd/system/mclient.service /etc/systemd/system/multi-user.target.wants/mclient.service
 
