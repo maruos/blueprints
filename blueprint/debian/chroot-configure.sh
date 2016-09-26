@@ -36,7 +36,7 @@ apt-get clean && apt-get update
 # first install "Recommends" since we overwrite some /etc config files
 apt-get -y install xfce4-terminal \
     vim-tiny \
-    iceweasel \
+    firefox-esr \
     libreoffice-writer \
     libreoffice-calc \
     libreoffice-impress \
