@@ -2,12 +2,13 @@ Package: maru
 Version: 0.1-1
 Section: x11
 Priority: optional
-Architecture: armhf
-Depends: libc6, libx11-6, libxfixes3, libxext6, libxdamage1, libxi6, libxrandr2,
+Architecture: all
+Depends: libc6,
     xserver-xorg-video-dummy,
     xfce4,
     lightdm,
-    sudo, rsync
+    sudo, rsync,
+    maru-mflinger-client
 Recommends: xfce4-terminal, xfce4-screenshooter,
     lxtask,
     vim,

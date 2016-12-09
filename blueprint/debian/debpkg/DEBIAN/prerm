@@ -20,6 +20,3 @@
 #
 # Stop any daemons associated with the package before removal.
 #
-
-# remove mclient from systemd startup
-systemctl disable mclient
