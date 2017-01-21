@@ -15,20 +15,20 @@
 # limitations under the License.
 #
 
-BLUEPRINT_NAME="DEBIAN"
+readonly BLUEPRINT_NAME="DEBIAN"
 
-DEFAULT_RELEASE="jessie"
-DEFAULT_ARCH="armhf"
+readonly DEFAULT_RELEASE="jessie"
+readonly DEFAULT_ARCH="armhf"
 
-DEFAULT_MARU_RELEASE="testing"
+readonly DEFAULT_MARU_RELEASE="testing"
 
 # tweaks to upstream template, must be absolute path
 # note: this is only used because older versions of LXC do not support
 # cross-debootstrapping in the debian template
-LXC_TEMPLATE_OVERRIDE="$(pwd)/lxc/templates/debian.sh"
+readonly LXC_TEMPLATE_OVERRIDE="$(pwd)/lxc/templates/debian.sh"
 
 # script to run inside the chroot
-CHROOT_SCRIPT="chroot-configure.sh"
+readonly CHROOT_SCRIPT="chroot-configure.sh"
 
 pecho () {
     echo "[ $BLUEPRINT_NAME ] $1"
@@ -45,6 +45,9 @@ Debian-specific options:
 
     -a, --arch      Architecture of generated image.
                     Defaults to armhf.
+
+    -m, --minimal   Minimize the image size as much as possible by dropping
+                    non-essential packages.
 EOF
 }
 
@@ -63,6 +66,7 @@ configure () {
     local name="$1"
     local rootfs="$2"
     local release="$3"
+    local minimal="$4"
 
     # make sure we've got a working nameserver
     # (on a fresh rootfs this may not be set correctly)
@@ -89,7 +93,7 @@ EOF
 
     # disable any default.target
     # (LXC template symlinks to multi-user.target by default)
-    SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
+    local SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
     rm -f "$SYSTEMD_DEFAULT_TARGET"
     ln -s "/lib/systemd/system/graphical.target" "$SYSTEMD_DEFAULT_TARGET"
 
@@ -105,7 +109,13 @@ EOF
 
     pecho "configuring rootfs..."
     cp "$CHROOT_SCRIPT" "${rootfs}/tmp"
-    chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT}"
+
+    local script_args=""
+    if [ "$minimal" = true ] ; then
+        script_args="--minimal"
+    fi
+
+    chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT} $script_args"
 
     # delete maru apt repository for now (upgrades not tested)
     rm "${rootfs}/etc/apt/sources.list.d/maruos.list"
@@ -122,8 +132,9 @@ blueprint_build () {
 
     local release="$DEFAULT_RELEASE"
     local arch="$DEFAULT_ARCH"
+    local minimal=false
 
-    local ARGS="$(getopt -o r:a:h --long release:,arch:,help -n "$BLUEPRINT_NAME" -- "$@")"
+    local ARGS="$(getopt -o r:a:mh --long release:,arch:,minimal,help -n "$BLUEPRINT_NAME" -- "$@")"
     if [ $? != 0 ] ; then
         pecho >&2 "Error parsing options!"
         exit 2
@@ -135,6 +146,7 @@ blueprint_build () {
         case "$1" in
             -r|--release) release="$2"; shift 2 ;;
             -a|--arch) arch="$2"; shift 2 ;;
+            -m|--minimal) minimal=true; shift ;;
             -h|--help) print_help; exit 0 ;;
             --) shift; break ;;
         esac
@@ -145,7 +157,7 @@ blueprint_build () {
     #
 
     bootstrap "$name" "$rootfs" "$release" "$arch"
-    configure "$name" "$rootfs" "$release"
+    configure "$name" "$rootfs" "$release" "$minimal"
 }
 
 blueprint_cleanup () {

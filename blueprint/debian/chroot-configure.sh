@@ -19,6 +19,47 @@
 
 set -e
 
+readonly RECOMMENDS="xfce4-terminal
+vim-tiny
+firefox-esr
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress
+ristretto"
+
+install () {
+    # first install "Recommends" since we overwrite some /etc config files
+    apt-get -y install $RECOMMENDS
+
+    # install maru package (this will always return failed exit status)
+    dpkg -i maru_* || true
+
+    # install all missing packages in "Depends"
+    apt-get -y --allow-unauthenticated install -f
+}
+
+install_minimal () {
+    # first install "Recommends" since we overwrite some /etc config files
+    apt-get -y install --no-install-recommends $RECOMMENDS
+
+    # install maru package (this will always return failed exit status)
+    dpkg -i maru_* || true
+
+    # install all missing packages in "Depends"
+    apt-get -y --allow-unauthenticated install --no-install-recommends -f
+}
+
+OPT_MINIMAL=false
+while true; do
+    case "$1" in
+        -m|--minimal) OPT_MINIMAL=true; shift ;;
+        --) shift; break ;;
+        *-) echo >&2 "Unrecognized option $1"; exit 2 ;;
+        *) break;
+    esac
+done
+
+
 #
 # do stuff that requires a chroot context
 #
@@ -33,20 +74,11 @@ echo "root:root" | chpasswd
 
 apt-get clean && apt-get update
 
-# first install "Recommends" since we overwrite some /etc config files
-apt-get -y install xfce4-terminal \
-    vim-tiny \
-    firefox-esr \
-    libreoffice-writer \
-    libreoffice-calc \
-    libreoffice-impress \
-    ristretto
-
-# install maru package (this will always return failed exit status)
-dpkg -i maru_* || true
-
-# install all missing packages in "Depends"
-apt-get -y --allow-unauthenticated install -f
+if [ "$OPT_MINIMAL" = true ] ; then
+    install_minimal
+else
+    install
+fi
 
 # get rid of xscreensaver and annoying warning
 apt-get -y purge xscreensaver xscreensaver-data
