@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh
 
 #
 # Copyright 2015-2016 Preetam J. D'Souza
@@ -33,6 +33,9 @@
 # adduser <user> <group> will fail if the group does not exist.
 #
 
+set -e
+set -u
+
 USER="maru"
 
 # create default user account
@@ -56,6 +59,10 @@ adduser "$USER" inet_raw
 # sdcard r/w permissions
 addgroup --gid 1015 sdcard_rw || true
 adduser "$USER" sdcard_rw
+
+# make sure root is added to Android's paranoid networking groups
+adduser root inet
+adduser root inet_raw
 
 ## systemd ##
 
