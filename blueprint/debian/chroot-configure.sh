@@ -19,13 +19,15 @@
 
 set -e
 
-readonly RECOMMENDS="xfce4-terminal
+readonly RECOMMENDS_MIN="xfce4-terminal
 vim-tiny
 firefox-esr
+ristretto"
+
+readonly RECOMMENDS="$RECOMMENDS_MIN
 libreoffice-writer
 libreoffice-calc
-libreoffice-impress
-ristretto"
+libreoffice-impress"
 
 install () {
     # first install "Recommends" since we overwrite some /etc config files
@@ -40,13 +42,18 @@ install () {
 
 install_minimal () {
     # first install "Recommends" since we overwrite some /etc config files
-    apt-get -y install --no-install-recommends $RECOMMENDS
+    apt-get -y install --no-install-recommends $RECOMMENDS_MIN
 
     # install maru package (this will always return failed exit status)
     dpkg -i maru_* || true
 
     # install all missing packages in "Depends"
     apt-get -y --allow-unauthenticated install --no-install-recommends -f
+
+    # HACK for now to skip libreoffice launcher icons
+    mv /home/maru/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel-minimal.xml \
+        /home/maru/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+    chown -R maru:maru /home/maru/.config
 }
 
 OPT_MINIMAL=false
