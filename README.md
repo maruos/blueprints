@@ -28,11 +28,11 @@ See blueprint/debian as the canonical example for Debian.
 
 Build a Debian Jessie armhf container called 'debian' (option defaults):
 
-    $ ./build.sh
+    # ./build.sh
 
 Build a Debian Jessie arm64 container called 'jessie64':
 
-    $ ./build.sh -b debian -n jessie64 -- -a arm64
+    # ./build.sh -b debian -n jessie64 -- -a arm64
 
 *Tip: You will need root privileges to mount binfmt_misc for bootstrapping
 foreign architecture containers.*
