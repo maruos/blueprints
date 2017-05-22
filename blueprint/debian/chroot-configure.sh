@@ -71,10 +71,6 @@ done
 # do stuff that requires a chroot context
 #
 
-# some versions of LXC set a random root password,
-# so ensure the password is set to 'root'
-echo "root:root" | chpasswd
-
 # disable sshd services by default
 # systemd syncs with sysvinit so use update-rc.d too
 /usr/sbin/update-rc.d ssh disable
@@ -108,3 +104,6 @@ apt-get clean
 
 # clean package lists (this can be recreated with apt-get update)
 rm -rf /var/lib/apt/lists/*
+
+# root acount is unnecessary since default account + sudo is all set up
+passwd -dl root
