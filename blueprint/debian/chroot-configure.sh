@@ -75,6 +75,13 @@ done
 # so ensure the password is set to 'root'
 echo "root:root" | chpasswd
 
+# disable sshd services by default
+# systemd syncs with sysvinit so use update-rc.d too
+/usr/sbin/update-rc.d ssh disable
+if [ -e /etc/systemd/system/sshd.service ] ; then
+    rm /etc/systemd/system/sshd.service
+fi
+
 #
 # install packages
 #
