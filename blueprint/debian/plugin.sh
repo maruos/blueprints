@@ -20,8 +20,6 @@ readonly BLUEPRINT_NAME="DEBIAN"
 readonly DEFAULT_RELEASE="jessie"
 readonly DEFAULT_ARCH="armhf"
 
-readonly DEFAULT_MARU_RELEASE="testing"
-
 # tweaks to upstream template, must be absolute path
 # note: this is only used because older versions of LXC do not support
 # cross-debootstrapping in the debian template
@@ -86,11 +84,6 @@ EOF
 deb http://httpredir.debian.org/debian ${release} main
 EOF
 
-    # add maru apt repository for installing dependencies
-    cat > "${rootfs}/etc/apt/sources.list.d/maruos.list" <<EOF
-deb http://packages.maruos.com/debian ${DEFAULT_MARU_RELEASE}/
-EOF
-
     # disable any default.target
     # (LXC template symlinks to multi-user.target by default)
     local SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
@@ -116,10 +109,6 @@ EOF
     fi
 
     chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT} $script_args"
-
-    # delete maru apt repository for now (upgrades not tested)
-    rm "${rootfs}/etc/apt/sources.list.d/maruos.list"
-
 }
 
 blueprint_build () {
