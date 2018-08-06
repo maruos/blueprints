@@ -26,7 +26,7 @@
 set -e
 set -u
 
-readonly MARU_TAG="maru-$(git describe)"
+readonly MARU_TAG="maru-g$(git rev-parse --short HEAD)"
 
 print_help () {
     cat <<EOF
