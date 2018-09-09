@@ -4,7 +4,7 @@
 
 Container image builder for Maru OS.
 
-### Blueprints
+## Blueprints
 
 Image building logic is separated into standalone plugins called blueprints.
 
@@ -22,9 +22,9 @@ To create your own blueprint, all you need to do is:
 4. Define the function `blueprint_cleanup` in plugin.sh that will clean up any
    intermediate build artifacts.
 
-See blueprint/debian as the canonical example for Debian.
+See [blueprint/debian](blueprint/debian) as the canonical example for Debian.
 
-### Examples
+## Examples
 
 Build a Debian Jessie armhf container called 'debian' (option defaults):
 
@@ -37,12 +37,11 @@ Build a Debian Jessie arm64 container called 'jessie64':
 *Tip: You will need root privileges to mount binfmt_misc for bootstrapping
 foreign architecture containers.*
 
-### Contributing
+## Contributing
 
 See the [main Maru OS repository](https://github.com/maruos/maruos) for more
 info.
 
-### Licensing
+## Licensing
 
-This repository is licensed under the Apache License, Version 2.0. See
-[LICENSE](LICENSE) for the details.
+[Apache 2.0](LICENSE)
