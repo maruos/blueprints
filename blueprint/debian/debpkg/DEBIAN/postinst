@@ -64,6 +64,15 @@ adduser "$USER" sdcard_rw
 adduser root inet
 adduser root inet_raw
 
+# if this release uses the unprivileged user _apt, grant it internet access
+# note: we have to change the *primary* group because the default primary group
+# 'nogroup' seems to prevent internet access even if _apt is added to inet as a
+# secondary group
+if id -u '_apt' >/dev/null ; then
+    echo "Granting internet access to APT user..."
+    usermod -g inet _apt
+fi
+
 ## systemd ##
 
 # This is harmless as everything still works with this enabled,
