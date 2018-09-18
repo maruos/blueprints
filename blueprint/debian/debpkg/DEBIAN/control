@@ -6,6 +6,7 @@ Architecture: all
 Depends: libc6,
     xserver-xorg, xserver-xorg-video-dummy, xinit,
     lightdm,
+    dbus-x11,
     xfce4, tango-icon-theme,
     sudo, rsync,
     maru-mflinger-client
