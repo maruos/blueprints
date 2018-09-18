@@ -32,8 +32,10 @@ done
 
 # Make sure the usual locations are in PATH
 export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
+export GREP_OPTIONS=""
 
-MIRROR=${MIRROR:-http://http.debian.net/debian}
+MIRROR=${MIRROR:-http://deb.debian.org/debian}
+SECURITY_MIRROR=${SECURITY_MIRROR:-http://security.debian.org/}
 LOCALSTATEDIR="/var"
 LXC_TEMPLATE_CONFIG="/usr/share/lxc/config"
 
@@ -95,13 +97,21 @@ $hostname
 EOF
 
     # reconfigure some services
-    if [ -z "$LANG" ]; then
+
+    # but first reconfigure locales - so we get no noisy perl-warnings
+    if [ -z "$LANG" ] || echo $LANG | grep -E -q "^C(\..+)*$"; then
+        cat >> $rootfs/etc/locale.gen << EOF
+en_US.UTF-8 UTF-8
+EOF
         chroot $rootfs locale-gen en_US.UTF-8 UTF-8
         chroot $rootfs update-locale LANG=en_US.UTF-8
     else
         encoding=$(echo $LANG | cut -d. -f2)
         chroot $rootfs sed -e "s/^# \(${LANG} ${encoding}\)/\1/" \
             -i /etc/locale.gen 2> /dev/null
+        cat >> $rootfs/etc/locale.gen << EOF
+$LANG $encoding
+EOF
         chroot $rootfs locale-gen $LANG $encoding
         chroot $rootfs update-locale LANG=$LANG
     fi
@@ -129,9 +139,6 @@ EOF
         DPKG_MAINTSCRIPT_PACKAGE=openssh DPKG_MAINTSCRIPT_NAME=postinst chroot $rootfs /var/lib/dpkg/info/openssh-server.postinst configure
         sed -i "s/root@$(hostname)/root@$hostname/g" $rootfs/etc/ssh/ssh_host_*.pub
 
-	# Don't allow root login with password
-	sed -i "s/PermitRootLogin yes/PermitRootLogin without-password/" $rootfs/etc/ssh/sshd_config
-
         if [ -f "$rootfs/etc/init/ssh.conf.disabled" ]; then
             mv $rootfs/etc/init/ssh.conf.disabled $rootfs/etc/init/ssh.conf
         fi
@@ -151,12 +158,32 @@ EOF
         echo "Timezone in container is not configured. Adjust it manually."
     fi
 
-    password="$(dd if=/dev/urandom bs=6 count=1 2> /dev/null | base64)"
-
-    echo "root:$password" | chroot $rootfs chpasswd
-    echo "Root password is '$password', please change !"
+    echo "root:root" | chroot $rootfs chpasswd
+    echo "Root password is 'root', please change !"
 
     return 0
+}
+
+write_sourceslist()
+{
+    local rootfs="$1";  shift
+    local release="$1"; shift
+    local arch="$1";    shift
+
+    local prefix="deb"
+    if [ -n "${arch}" ]; then
+        prefix="deb [arch=${arch}]"
+    fi
+
+    cat >> "${rootfs}/etc/apt/sources.list" << EOF
+${prefix} $MIRROR          ${release}         main contrib non-free
+EOF
+
+    if [ "$release" != "unstable" -a "$release" != "sid" ]; then
+      cat >> "${rootfs}/etc/apt/sources.list" << EOF
+${prefix} $SECURITY_MIRROR ${release}/updates main contrib non-free
+EOF
+    fi
 }
 
 configure_debian_systemd()
@@ -166,7 +193,7 @@ configure_debian_systemd()
 
     init="$(chroot ${rootfs} dpkg-query --search /sbin/init | cut -d : -f 1)"
     if [ "$init" = "systemd-sysv" ]; then
-       # only appropiate when systemd is PID 1
+       # only appropriate when systemd is PID 1
        echo 'lxc.autodev = 1' >> "$path/config"
        echo 'lxc.kmsg = 0' >> "$path/config"
     fi
@@ -183,10 +210,14 @@ configure_debian_systemd()
     mkdir -p ${rootfs}/{lib,etc}/systemd/system
     mkdir -p ${rootfs}/etc/systemd/system/getty.target.wants
 
+    # Fix getty-static-service as debootstrap does not install dbus
+    if [ -e $rootfs//lib/systemd/system/getty-static.service ] ; then
+        sed 's/ getty@tty[5-9].service//g' $rootfs/lib/systemd/system/getty-static.service |  sed 's/\(tty2-tty\)[5-9]/\14/g' > $rootfs/etc/systemd/system/getty-static.service
+    fi
+
     # This function has been copied and adapted from lxc-fedora
     rm -f ${rootfs}/etc/systemd/system/default.target
     touch ${rootfs}/etc/fstab
-    chroot ${rootfs} ln -s /dev/null /etc/systemd/system/systemd-udevd.service
     chroot ${rootfs} ln -s /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
     # Make systemd honor SIGPWR
     chroot ${rootfs} ln -s /lib/systemd/system/halt.target /etc/systemd/system/sigpwr.target
@@ -206,15 +237,25 @@ cleanup()
 
 download_debian()
 {
+    case "$release" in
+      wheezy)
+        init=sysvinit
+        iproute=iproute
+        ;;
+      *)
+        init=init
+        iproute=iproute2
+        ;;
+    esac
     packages=\
+$init,\
 ifupdown,\
 locales,\
-libui-dialog-perl,\
 dialog,\
 isc-dhcp-client,\
 netbase,\
 net-tools,\
-iproute,\
+$iproute,\
 openssh-server
 
     cache=$1
@@ -222,6 +263,25 @@ openssh-server
     release=$3
 
     trap cleanup EXIT SIGHUP SIGINT SIGTERM
+
+    # Create the cache
+    mkdir -p "$cache"
+
+    # If debian-archive-keyring isn't installed, fetch GPG keys directly
+    releasekeyring=/usr/share/keyrings/debian-archive-keyring.gpg
+    if [ ! -f $releasekeyring ]; then
+        releasekeyring="$cache/archive-key.gpg"
+        case $release in
+            "wheezy")
+                gpgkeyname="archive-key-7.0"
+                ;;
+            *)
+                gpgkeyname="archive-key-8"
+                ;;
+        esac
+        wget https://ftp-master.debian.org/keys/${gpgkeyname}.asc -O - --quiet \
+            | gpg --import --no-default-keyring --keyring=${releasekeyring}
+    fi
     # check the mini debian was not already downloaded
     mkdir -p "$cache/partial-$release-$arch"
     if [ $? -ne 0 ]; then
@@ -232,7 +292,7 @@ openssh-server
     # download a mini debian into a cache
     echo "Downloading debian minimal ..."
     qemu-debootstrap --verbose --variant=minbase --arch=$arch \
-        --include=$packages \
+        --include=$packages --keyring=${releasekeyring} \
         "$release" "$cache/partial-$release-$arch" $MIRROR
     if [ $? -ne 0 ]; then
         echo "Failed to download the rootfs, aborting."
@@ -259,7 +319,7 @@ copy_debian()
     # make a local copy of the minidebian
     echo -n "Copying rootfs to $rootfs..."
     mkdir -p $rootfs
-    rsync -Ha "$cache/rootfs-$release-$arch"/ $rootfs/ || return 1
+    rsync -SHaAX "$cache/rootfs-$release-$arch"/ $rootfs/ || return 1
     return 0
 }
 
@@ -346,6 +406,42 @@ EOF
     return 0
 }
 
+post_process()
+{
+    local rootfs="$1";  shift
+    local release="$1"; shift
+    local arch="$1"; shift
+    local hostarch="$1"; shift
+
+    # Disable service startup
+    cat > ${rootfs}/usr/sbin/policy-rc.d << EOF
+#!/bin/sh
+exit 101
+EOF
+    chmod +x ${rootfs}/usr/sbin/policy-rc.d
+
+    # If the container isn't running a native architecture, setup multiarch
+    if [ "${arch}" != "${hostarch}" ]; then
+        # Test if dpkg supports multiarch
+        if ! chroot "$rootfs" dpkg --print-foreign-architectures 2>&1; then
+            chroot "$rootfs" dpkg --add-architecture "${hostarch}"
+        fi
+    fi
+
+    # Write a new sources.list containing both native and multiarch entries
+    > ${rootfs}/etc/apt/sources.list
+    if [ "${arch}" = "${hostarch}" ]; then
+        write_sourceslist ${rootfs} ${release} ${arch}
+    else
+        write_sourceslist ${rootfs} ${release}
+    fi
+
+    # Re-enable service startup
+    rm ${rootfs}/usr/sbin/policy-rc.d
+
+    # end
+}
+
 clean()
 {
     cache="$LOCALSTATEDIR/cache/lxc/debian"
@@ -372,46 +468,77 @@ clean()
 usage()
 {
     cat <<EOF
-$1 -h|--help -p|--path=<path> [-a|--arch] [-r|--release=<release>] [-c|--clean]
-release: the debian release (e.g. wheezy): defaults to current stable
-arch: the container architecture (e.g. amd64): defaults to host arch
+Template specific options can be passed to lxc-create after a '--' like this:
+
+  lxc-create --name=NAME [-lxc-create-options] -- [-template-options]
+
+Usage: $1 -h|--help -p|--path=<path> [-c|--clean] [-a|--arch=<arch>] [-r|--release=<release>]
+                                     [--mirror=<mirror>] [--security-mirror=<security mirror>]
+
+Options :
+
+  -h, --help             print this help text
+  -p, --path=PATH        directory where config and rootfs of this VM will be kept
+  -a, --arch=ARCH        The container architecture. Can be one of: i686, x86_64,
+                         amd64, armhf, armel, powerpc. Defaults to host arch.
+  -r, --release=RELEASE  Debian release. Can be one of: wheezy, jessie, stretch, buster, sid.
+                         Defaults to current stable.
+  --mirror=MIRROR        Debian mirror to use during installation. Overrides the MIRROR
+                         environment variable (see below).
+  --security-mirror=SECURITY_MIRROR
+                         Debian mirror to use for security updates. Overrides the
+                         SECURITY_MIRROR environment variable (see below).
+  -c, --clean            only clean up the cache and terminate
+
+Environment variables:
+
+  MIRROR                 The Debian package mirror to use. See also the --mirror switch above.
+                         Defaults to '$MIRROR'
+  SECURITY_MIRROR        The Debian package security mirror to use. See also the --security-mirror switch above.
+                         Defaults to '$SECURITY_MIRROR'
+
 EOF
     return 0
 }
 
-options=$(getopt -o hp:n:a:r:c -l help,rootfs:,path:,name:,arch:,release:,clean -- "$@")
+options=$(getopt -o hp:n:a:r:c -l arch:,clean,help,mirror:,name:,path:,release:,rootfs:,security-mirror: -- "$@")
 if [ $? -ne 0 ]; then
         usage $(basename $0)
         exit 1
 fi
 eval set -- "$options"
 
-if which dpkg > /dev/null 2>&1 ; then
-    arch=$(dpkg --print-architecture)
-else
-    arch=$(uname -m)
-    if [ "$arch" = "i686" ]; then
-        arch="i386"
-    elif [ "$arch" = "x86_64" ]; then
-        arch="amd64"
-    elif [ "$arch" = "armv7l" ]; then
-        arch="armhf"
-    fi
+arch=$(uname -m)
+if [ "$arch" = "i686" ]; then
+    arch="i386"
+elif [ "$arch" = "x86_64" ]; then
+    arch="amd64"
+elif [ "$arch" = "armv7l" ]; then
+    arch="armhf"
+elif [ "$arch" = "aarch64" ]; then
+    arch="arm64"
+elif [ "$arch" = "ppc" ]; then
+    arch="powerpc"
+elif [ "$arch" = "ppc64le" ]; then
+    arch="ppc64el"
 fi
 hostarch=$arch
 
 while true
 do
     case "$1" in
-        -h|--help)      usage $0 && exit 1;;
-        -p|--path)      path=$2; shift 2;;
-        --rootfs)       rootfs=$2; shift 2;;
-        -a|--arch)      arch=$2; shift 2;;
-        -r|--release)   release=$2; shift 2;;
-        -n|--name)      name=$2; shift 2;;
-        -c|--clean)     clean=$2; shift 1;;
-        --)             shift 1; break ;;
-        *)              break ;;
+        -h|--help)            usage $0 && exit 1;;
+           --)                shift 1; break ;;
+
+        -a|--arch)            arch=$2; shift 2;;
+        -c|--clean)           clean=1; shift 1;;
+           --mirror)          MIRROR=$2; shift 2;;
+        -n|--name)            name=$2; shift 2;;
+        -p|--path)            path=$2; shift 2;;
+        -r|--release)         release=$2; shift 2;;
+           --rootfs)          rootfs=$2; shift 2;;
+           --security-mirror) SECURITY_MIRROR=$2; shift 2;;
+        *)                    break ;;
     esac
 done
 
@@ -460,12 +587,13 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-current_release=`wget ${MIRROR}/dists/stable/Release -O - 2> /dev/null | head |awk '/^Codename: (.*)$/ { print $2; }'`
-release=${release:-${current_release}}
-valid_releases=('squeeze' 'wheezy' 'jessie' 'sid')
-if [[ ! "${valid_releases[*]}" =~ (^|[^[:alpha:]])$release([^[:alpha:]]|$) ]]; then
-    echo "Invalid release ${release}, valid ones are: ${valid_releases[*]}"
-    exit 1
+release=${release:-stable}
+permanent_releases=('stable' 'testing' 'sid' 'unstable')
+if [[ ! "${permanent_releases[*]}" =~ (^|[^[:alpha:]])$release([^[:alpha:]]|$) ]]; then
+    if ! wget "${MIRROR}/dists/${release}/Release" -O /dev/null 2> /dev/null; then
+	echo "Invalid release ${release} (not found in mirror)"
+	exit 1
+    fi
 fi
 
 # detect rootfs
@@ -477,7 +605,6 @@ if [ -z "$rootfs" ]; then
         rootfs=$path/rootfs
     fi
 fi
-
 
 install_debian $rootfs $release $arch
 if [ $? -ne 0 ]; then
@@ -499,7 +626,9 @@ fi
 
 configure_debian_systemd $path $rootfs
 
-if [ ! -z $clean ]; then
+post_process ${rootfs} ${release} ${arch} ${hostarch}
+
+if [ ! -z "$clean" ]; then
     clean || exit 1
     exit 0
 fi
