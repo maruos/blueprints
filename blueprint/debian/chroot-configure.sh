@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #
 # Copyright 2015-2016 Preetam J. D'Souza
@@ -20,19 +20,11 @@
 set -e
 set -u
 
-readonly RECOMMENDS_MIN="xfce4-terminal
-vim-tiny
-firefox-esr
-ristretto"
-
-readonly RECOMMENDS="$RECOMMENDS_MIN
-libreoffice-writer
-libreoffice-calc
-libreoffice-impress"
-
 install () {
+    local pkgs="$1"
+
     # first install "Recommends" since we overwrite some /etc config files
-    apt-get -y install $RECOMMENDS
+    apt-get -y install $pkgs
 
     # install maru package (this will always return failed exit status)
     dpkg -i maru_* || true
@@ -42,8 +34,10 @@ install () {
 }
 
 install_minimal () {
+    local pkgs="$1"
+
     # first install "Recommends" since we overwrite some /etc config files
-    apt-get -y install --no-install-recommends $RECOMMENDS_MIN
+    apt-get -y install --no-install-recommends $pkgs
 
     # install maru package (this will always return failed exit status)
     dpkg -i maru_* || true
@@ -58,14 +52,30 @@ install_minimal () {
 }
 
 OPT_MINIMAL=false
+OPT_RELEASE=""
 while [ $# -gt 0 ]; do
-    case "$1" in
+    case $1 in
+        -r|--release) OPT_RELEASE="$2"; shift 2 ;;
         -m|--minimal) OPT_MINIMAL=true; shift ;;
-        --) shift; break ;;
-        -*) echo >&2 "Unrecognized option $1"; exit 2 ;;
-        *) break;
+        *) echo >&2 "[x] Unrecognized option: '$1'"; exit 2 ;;
     esac
 done
+
+recommends_min="xfce4-terminal
+vim-tiny
+firefox-esr
+ristretto"
+
+# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=908396
+if [ "$OPT_RELEASE" = "stretch" ] ; then
+    echo "[!] Installing older firefox-esr to work around Debian bug #908396"
+    recommends_min="${recommends_min/firefox-esr/firefox-esr=52.9.0esr-1~deb9u1}"
+fi
+
+recommends="$recommends_min
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress"
 
 
 #
@@ -94,9 +104,9 @@ EOF
 apt-get update
 
 if [ "$OPT_MINIMAL" = true ] ; then
-    install_minimal
+    install_minimal "$recommends_min"
 else
-    install
+    install "$recommends"
 fi
 
 # delete maru apt repository for now (upgrades not tested)

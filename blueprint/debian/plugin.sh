@@ -17,13 +17,13 @@
 
 readonly BLUEPRINT_NAME="DEBIAN"
 
-readonly DEFAULT_RELEASE="jessie"
+readonly DEFAULT_RELEASE="stretch"
 readonly DEFAULT_ARCH="armhf"
 
 # tweaks to upstream template, must be absolute path
 # note: this is only used because older versions of LXC do not support
 # cross-debootstrapping in the debian template
-readonly LXC_TEMPLATE_OVERRIDE="$(pwd)/lxc/templates/debian.sh"
+readonly LXC_TEMPLATE_OVERRIDE="$(readlink -f lxc/templates/debian.sh)"
 
 # script to run inside the chroot
 readonly CHROOT_SCRIPT="chroot-configure.sh"
@@ -39,10 +39,10 @@ Blueprint for building Debian images.
 Debian-specific options:
 
     -r, --release   Debian release to use as the image base.
-                    Defaults to jessie.
+                    Defaults to '$DEFAULT_RELEASE'.
 
     -a, --arch      Architecture of generated image.
-                    Defaults to armhf.
+                    Defaults to '$DEFAULT_ARCH'.
 
     -m, --minimal   Minimize the image size as much as possible by dropping
                     non-essential packages.
@@ -79,11 +79,6 @@ ff02::1     ip6-allnodes
 ff02::2     ip6-allrouters
 EOF
 
-    # make sure we have a dynamic mirror for installing packages
-    cat > "${rootfs}/etc/apt/sources.list" <<EOF
-deb http://httpredir.debian.org/debian ${release} main
-EOF
-
     # disable any default.target
     # (LXC template symlinks to multi-user.target by default)
     local SYSTEMD_DEFAULT_TARGET="${rootfs}/etc/systemd/system/default.target"
@@ -103,9 +98,9 @@ EOF
     pecho "configuring rootfs..."
     cp "$CHROOT_SCRIPT" "${rootfs}/tmp"
 
-    local script_args=""
+    local script_args="-r ${release}"
     if [ "$minimal" = true ] ; then
-        script_args="--minimal"
+        script_args="${script_args} --minimal"
     fi
 
     chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT} $script_args"
