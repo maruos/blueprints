@@ -60,6 +60,9 @@ adduser "$USER" inet_raw
 addgroup --gid 1015 sdcard_rw || true
 adduser "$USER" sdcard_rw
 
+# read systemd logs via journalctl
+adduser "$USER" systemd-journal
+
 # make sure root is added to Android's paranoid networking groups
 adduser root inet
 adduser root inet_raw
