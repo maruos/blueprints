@@ -86,7 +86,7 @@ fi
 apt-get clean && apt-get update
 
 # add maru apt repository for installing dependencies
-apt-get install -y curl
+apt-get install -y curl gnupg
 curl -fsSL https://maruos.com/static/gpg.txt | apt-key add -
 cat > /etc/apt/sources.list.d/maruos.list <<EOF
 deb http://packages.maruos.com/debian testing/
