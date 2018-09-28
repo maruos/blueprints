@@ -21,9 +21,6 @@
 # Clean up any files created during install.
 #
 
-# remove the backports we added in preinst
-rm /etc/apt/sources.list.d/backports.list
-
 # retore original lightdm.conf
 mv /etc/lightdm/lightdm.conf.backup /etc/lightdm/lightdm.conf
 
