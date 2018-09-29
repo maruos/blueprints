@@ -18,7 +18,7 @@
         <value type="int" value="5"/>
         <value type="int" value="6"/>
       </property>
-      <property name="background-alpha" type="uint" value="25"/>
+      <property name="background-alpha" type="uint" value="100"/>
     </property>
     <property name="panel-2" type="empty">
       <property name="position" type="string" value="p=10;x=0;y=0"/>
