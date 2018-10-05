@@ -89,7 +89,7 @@ vim-tiny
 firefox-esr
 ristretto"
 
-# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=908396
+# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=909498
 if [ "$OPT_RELEASE" = "stretch" ] ; then
     echo "[!] Installing older firefox-esr to work around Debian bug #908396"
     recommends_min="${recommends_min/firefox-esr/firefox-esr=52.9.0esr-1~deb9u1}"
@@ -114,6 +114,12 @@ if [ "$OPT_MINIMAL" = true ] ; then
     install_minimal "$recommends_min"
 else
     install "$recommends"
+fi
+
+# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=909498
+if [ "$OPT_RELEASE" = "stretch" ] ; then
+    # prevent `apt-get upgrade` from auto-upgrading firefox-esr
+    apt-mark hold firefox-esr
 fi
 
 # delete maru apt repository for now (upgrades not tested)
