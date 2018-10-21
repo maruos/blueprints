@@ -1,0 +1,9 @@
+#!/bin/bash
+uname=$(/usr/bin/getent passwd 901000 | /usr/bin/cut -f1 -d:)
+export DISPLAY=:0.0
+export XAUTHORITY=/home/$uname/.Xauthority
+ids=$(/usr/bin/xinput list --id-only)
+while [[ -z "$ids" ]];do
+    ids=$(/usr/bin/xinput list --id-only)
+done;
+for id in $ids;do /usr/bin/xinput enable $id;done
