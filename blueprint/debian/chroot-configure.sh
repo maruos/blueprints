@@ -136,12 +136,18 @@ apt-get -y purge xscreensaver xscreensaver-data
 
 echo "[*] Configuring system..."
 
+echo "  [*] Disabling sshd..."
 # disable sshd services by default
 # systemd syncs with sysvinit so use update-rc.d too
 /usr/sbin/update-rc.d ssh disable
 if [ -e /etc/systemd/system/sshd.service ] ; then
     rm /etc/systemd/system/sshd.service
 fi
+
+echo "  [*] Masking remount of /sys/kernel/debug..."
+# mask the remount of /sys/kernel/debug
+# because it breaks webview_zygote on some devices
+ln -s /dev/null /etc/systemd/system/sys-kernel-debug.mount
 
 # root acount is unnecessary since default account + sudo is all set up
 passwd -dl root >/dev/null
