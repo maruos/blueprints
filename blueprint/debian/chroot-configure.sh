@@ -72,6 +72,11 @@ shrink_rootfs () {
     rm -rf /var/lib/apt/lists/*
 }
 
+# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=909498
+workaround_909498 () {
+    [ "$OPT_RELEASE" = "stretch" ] && [ "$(dpkg --print-architecture)" = "armhf" ]
+}
+
 OPT_MINIMAL=false
 OPT_RELEASE=""
 while [ $# -gt 0 ]; do
@@ -89,10 +94,12 @@ vim-tiny
 firefox-esr
 ristretto"
 
-# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=909498
-if [ "$OPT_RELEASE" = "stretch" ] ; then
-    echo "[!] Installing older firefox-esr to work around Debian bug #908396"
-    recommends_min="${recommends_min/firefox-esr/firefox-esr=52.9.0esr-1~deb9u1}"
+if workaround_909498 ; then
+    echo "[!] Installing firefox-esr from oldstable to work around Debian bug #909498"
+    cat > /etc/apt/sources.list.d/jessie.list <<EOF
+deb http://security.debian.org/debian-security jessie/updates main
+EOF
+    recommends_min="${recommends_min/firefox-esr/firefox-esr/oldstable}"
 fi
 
 recommends="$recommends_min
@@ -116,8 +123,7 @@ else
     install "$recommends"
 fi
 
-# WORKAROUND for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=909498
-if [ "$OPT_RELEASE" = "stretch" ] ; then
+if workaround_909498 ; then
     # prevent `apt-get upgrade` from auto-upgrading firefox-esr
     apt-mark hold firefox-esr
 fi
