@@ -1,0 +1,12 @@
+# This file is left empty to override /lib/udev/rules.d/80-net-setup-link.rules
+#
+# tl;dr If you start Maru Desktop with WiFi turned off, you can never turn WiFi back
+#       on till a reboot! Override udev's interface renaming to fix.
+#
+# udev uses "Predictable Network Interface Names" to generate stable network
+# interface names in Debian. Unfortunately, this can step on Android's toes and
+# prevent interfaces from being brought up correctly from Android.
+#
+# The solution here is to override /lib/udev/rules.d/80-net-setup-link.rules with an empty
+# file in /etc/udev/rules.d/ to prevent udev from messing with network interface names.
+#
