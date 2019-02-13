@@ -16,6 +16,5 @@ RUN apt-get update && apt-get install -y \
 ENV MARU_WORKSPACE /var/maru
 RUN mkdir -p ${MARU_WORKSPACE}
 WORKDIR ${MARU_WORKSPACE}
-COPY . ${MARU_WORKSPACE}
 
-CMD ["./build.sh", "--", "--minimal"]
+ENTRYPOINT ["./build.sh"]
