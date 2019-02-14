@@ -26,20 +26,34 @@ See [blueprint/debian](blueprint/debian) as the canonical example for Debian.
 
 ## Examples
 
-Create the default container in Docker (specified in `Dockerfile`'s CMD):
+Build the default container:
 
-    ./build-with-docker.sh
+    $ ./build.sh
 
-Create a Debian arm64 stretch container called "stretch-container" (args will be passed to `build.sh`):
+Build a minimal Debian arm64 stretch container called "stretch-container":
 
-    ./build-with-docker.sh -b debian -n stretch-container -- -r stretch -a arm64 --minimal
-
-To stop the build early you can run:
-
-    docker stop $CONTAINER_ID
+    $ ./build.sh -b debian -n stretch-container -- -r stretch -a arm64 --minimal
 
 *Tip: You will need root privileges to mount binfmt_misc for bootstrapping
 foreign architecture containers.*
+
+### Building with Docker
+
+If you have Docker set up on your machine, just substitute `./build.sh` with
+`./build-with-docker.sh` to run a build within a Docker container with all the
+necessary dependencies pre-installed. All args will be passed to `build.sh` just
+like usual.
+
+Build a Debian arm64 stretch container called "stretch-container" with Docker
+(args will be passed to `build.sh`):
+
+    $ ./build-with-docker.sh -b debian -n stretch-container -- -r stretch -a arm64 --minimal
+
+To stop the build early you can run:
+
+    $ docker stop $CONTAINER_ID
+
+where `$CONTAINER_ID` is determined from `docker ps`.
 
 ## Contributing
 
