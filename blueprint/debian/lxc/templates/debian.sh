@@ -36,19 +36,22 @@ export GREP_OPTIONS=""
 
 MIRROR=${MIRROR:-http://deb.debian.org/debian}
 SECURITY_MIRROR=${SECURITY_MIRROR:-http://security.debian.org/}
-LOCALSTATEDIR="/var"
-LXC_TEMPLATE_CONFIG="/usr/share/lxc/config"
+LOCALSTATEDIR="@LOCALSTATEDIR@"
+LXC_TEMPLATE_CONFIG="@LXCTEMPLATECONFIG@"
+# Allows the lxc-cache directory to be set by environment variable
+LXC_CACHE_PATH=${LXC_CACHE_PATH:-"$LOCALSTATEDIR/cache/lxc"}
 
 configure_debian()
 {
     rootfs=$1
     hostname=$2
+    num_tty=$3
 
     # squeeze only has /dev/tty and /dev/tty0 by default,
     # therefore creating missing device nodes for tty1-4.
-    for tty in $(seq 1 4); do
-        if [ ! -e $rootfs/dev/tty$tty ]; then
-            mknod $rootfs/dev/tty$tty c 4 $tty
+    for tty in $(seq 1 "$num_tty"); do
+        if [ ! -e "$rootfs/dev/tty$tty" ]; then
+            mknod "$rootfs/dev/tty$tty" c 4 "$tty"
         fi
     done
 
@@ -66,21 +69,18 @@ l6:6:wait:/etc/init.d/rc 6
 # Normally not reached, but fallthrough in case of emergency.
 z6:6:respawn:/sbin/sulogin
 1:2345:respawn:/sbin/getty 38400 console
-c1:12345:respawn:/sbin/getty 38400 tty1 linux
-c2:12345:respawn:/sbin/getty 38400 tty2 linux
-c3:12345:respawn:/sbin/getty 38400 tty3 linux
-c4:12345:respawn:/sbin/getty 38400 tty4 linux
+$(for tty in $(seq 1 "$num_tty"); do echo "c${tty}:12345:respawn:/sbin/getty 38400 tty${tty} linux" ; done;)
 p6::ctrlaltdel:/sbin/init 6
 p0::powerfail:/sbin/init 0
 EOF
 
     # symlink mtab
-    [ -e "$rootfs/etc/mtab" ] && rm $rootfs/etc/mtab
-    ln -s /proc/self/mounts $rootfs/etc/mtab
+    [ -e "$rootfs/etc/mtab" ] && rm "$rootfs/etc/mtab"
+    ln -s /proc/self/mounts "$rootfs/etc/mtab"
 
     # disable selinux in debian
-    mkdir -p $rootfs/selinux
-    echo 0 > $rootfs/selinux/enforce
+    mkdir -p "$rootfs/selinux"
+    echo 0 > "$rootfs/selinux/enforce"
 
     # configure the network using the dhcp
     cat <<EOF > $rootfs/etc/network/interfaces
@@ -100,66 +100,63 @@ EOF
 
     # but first reconfigure locales - so we get no noisy perl-warnings
     if [ -z "$LANG" ] || echo $LANG | grep -E -q "^C(\..+)*$"; then
-        cat >> $rootfs/etc/locale.gen << EOF
+        cat >> "$rootfs/etc/locale.gen" << EOF
 en_US.UTF-8 UTF-8
 EOF
-        chroot $rootfs locale-gen en_US.UTF-8 UTF-8
-        chroot $rootfs update-locale LANG=en_US.UTF-8
+        chroot "$rootfs" locale-gen en_US.UTF-8 UTF-8
+        chroot "$rootfs" update-locale LANG=en_US.UTF-8
     else
-        encoding=$(echo $LANG | cut -d. -f2)
-        chroot $rootfs sed -e "s/^# \(${LANG} ${encoding}\)/\1/" \
+        encoding=$(echo "$LANG" | cut -d. -f2)
+        chroot "$rootfs" sed -e "s/^# \(${LANG} ${encoding}\)/\1/" \
             -i /etc/locale.gen 2> /dev/null
-        cat >> $rootfs/etc/locale.gen << EOF
+        cat >> "$rootfs/etc/locale.gen" << EOF
 $LANG $encoding
 EOF
-        chroot $rootfs locale-gen $LANG $encoding
-        chroot $rootfs update-locale LANG=$LANG
+        chroot "$rootfs" locale-gen "$LANG" "$encoding"
+        chroot "$rootfs" update-locale LANG="$LANG"
     fi
 
     # remove pointless services in a container
-    chroot $rootfs /usr/sbin/update-rc.d -f checkroot.sh disable
-    chroot $rootfs /usr/sbin/update-rc.d -f umountfs disable
-    chroot $rootfs /usr/sbin/update-rc.d -f hwclock.sh disable
-    chroot $rootfs /usr/sbin/update-rc.d -f hwclockfirst.sh disable
+    chroot "$rootfs" /usr/sbin/update-rc.d -f checkroot.sh disable
+    chroot "$rootfs" /usr/sbin/update-rc.d -f umountfs disable
+    chroot "$rootfs" /usr/sbin/update-rc.d -f hwclock.sh disable
+    chroot "$rootfs" /usr/sbin/update-rc.d -f hwclockfirst.sh disable
 
     # generate new SSH keys
-    if [ -x $rootfs/var/lib/dpkg/info/openssh-server.postinst ]; then
-        cat > $rootfs/usr/sbin/policy-rc.d << EOF
+    if [ -x "$rootfs/var/lib/dpkg/info/openssh-server.postinst" ]; then
+        cat > "$rootfs/usr/sbin/policy-rc.d" << EOF
 #!/bin/sh
 exit 101
 EOF
-        chmod +x $rootfs/usr/sbin/policy-rc.d
+        chmod +x "$rootfs/usr/sbin/policy-rc.d"
 
-        if [ -f $rootfs/etc/init/ssh.conf ]; then
-            mv $rootfs/etc/init/ssh.conf $rootfs/etc/init/ssh.conf.disabled
+        if [ -f "$rootfs/etc/init/ssh.conf" ]; then
+            mv "$rootfs/etc/init/ssh.conf" "$rootfs/etc/init/ssh.conf.disabled"
         fi
 
-        rm -f $rootfs/etc/ssh/ssh_host_*key*
+        rm -f "$rootfs/etc/ssh/"ssh_host_*key*
 
-        DPKG_MAINTSCRIPT_PACKAGE=openssh DPKG_MAINTSCRIPT_NAME=postinst chroot $rootfs /var/lib/dpkg/info/openssh-server.postinst configure
-        sed -i "s/root@$(hostname)/root@$hostname/g" $rootfs/etc/ssh/ssh_host_*.pub
+        DPKG_MAINTSCRIPT_PACKAGE=openssh DPKG_MAINTSCRIPT_NAME=postinst chroot "$rootfs" /var/lib/dpkg/info/openssh-server.postinst configure
+        sed -i "s/root@$(hostname)/root@$hostname/g" "$rootfs/etc/ssh/"ssh_host_*.pub
 
         if [ -f "$rootfs/etc/init/ssh.conf.disabled" ]; then
-            mv $rootfs/etc/init/ssh.conf.disabled $rootfs/etc/init/ssh.conf
+            mv "$rootfs/etc/init/ssh.conf.disabled" "$rootfs/etc/init/ssh.conf"
         fi
 
-        rm -f $rootfs/usr/sbin/policy-rc.d
+        rm -f "$rootfs/usr/sbin/policy-rc.d"
     fi
 
     # set initial timezone as on host
     if [ -f /etc/timezone ]; then
-        cat /etc/timezone > $rootfs/etc/timezone
-        chroot $rootfs dpkg-reconfigure -f noninteractive tzdata
+        cat /etc/timezone > "$rootfs/etc/timezone"
+        chroot "$rootfs" dpkg-reconfigure -f noninteractive tzdata
     elif [ -f /etc/sysconfig/clock ]; then
         . /etc/sysconfig/clock
-        echo $ZONE > $rootfs/etc/timezone
-        chroot $rootfs dpkg-reconfigure -f noninteractive tzdata
+        echo "$ZONE" > "$rootfs/etc/timezone"
+        chroot "$rootfs" dpkg-reconfigure -f noninteractive tzdata
     else
         echo "Timezone in container is not configured. Adjust it manually."
     fi
-
-    echo "root:root" | chroot $rootfs chpasswd
-    echo "Root password is 'root', please change !"
 
     return 0
 }
@@ -175,14 +172,31 @@ write_sourceslist()
         prefix="deb [arch=${arch}]"
     fi
 
+    if [ "$mainonly" = 1 ]; then
+      non_main=''
+    else
+      non_main=' contrib non-free'
+    fi
+
     cat >> "${rootfs}/etc/apt/sources.list" << EOF
-${prefix} $MIRROR          ${release}         main contrib non-free
+${prefix} $MIRROR          ${release}         main${non_main}
 EOF
 
     if [ "$release" != "unstable" -a "$release" != "sid" ]; then
       cat >> "${rootfs}/etc/apt/sources.list" << EOF
-${prefix} $SECURITY_MIRROR ${release}/updates main contrib non-free
+${prefix} $SECURITY_MIRROR ${release}/updates main${non_main}
 EOF
+    fi
+}
+
+install_packages()
+{
+    local rootfs="$1"; shift
+    local packages="$*"
+
+    chroot "${rootfs}" apt-get update
+    if [ -n "${packages}" ]; then
+        chroot "${rootfs}" apt-get install --force-yes -y --no-install-recommends ${packages}
     fi
 }
 
@@ -190,49 +204,45 @@ configure_debian_systemd()
 {
     path=$1
     rootfs=$2
-
-    init="$(chroot ${rootfs} dpkg-query --search /sbin/init | cut -d : -f 1)"
-    if [ "$init" = "systemd-sysv" ]; then
-       # only appropriate when systemd is PID 1
-       echo 'lxc.autodev = 1' >> "$path/config"
-       echo 'lxc.kmsg = 0' >> "$path/config"
-    fi
-
-    # this only works if we have getty@.service to manipulate
-    if [ -f ${rootfs}/lib/systemd/system/getty\@.service ]; then
-       sed -e 's/^ConditionPathExists=/# ConditionPathExists=/' \
-           -e 's/After=dev-%i.device/After=/' \
-           < ${rootfs}/lib/systemd/system/getty\@.service \
-           > ${rootfs}/etc/systemd/system/getty\@.service
-    fi
+    config=$3
+    num_tty=$4
 
     # just in case systemd is not installed
-    mkdir -p ${rootfs}/{lib,etc}/systemd/system
-    mkdir -p ${rootfs}/etc/systemd/system/getty.target.wants
+    mkdir -p "${rootfs}/lib/systemd/system"
+    mkdir -p "${rootfs}/etc/systemd/system/getty.target.wants"
 
     # Fix getty-static-service as debootstrap does not install dbus
-    if [ -e $rootfs//lib/systemd/system/getty-static.service ] ; then
-        sed 's/ getty@tty[5-9].service//g' $rootfs/lib/systemd/system/getty-static.service |  sed 's/\(tty2-tty\)[5-9]/\14/g' > $rootfs/etc/systemd/system/getty-static.service
+    if [ -e "$rootfs//lib/systemd/system/getty-static.service" ] ; then
+        local tty_services
+        tty_services=$(for i in $(seq 2 "$num_tty"); do echo -n "getty@tty${i}.service "; done; )
+        sed 's/ getty@tty.*/'" $tty_services "'/g' \
+                "$rootfs/lib/systemd/system/getty-static.service" |  \
+                sed 's/\(tty2-tty\)[5-9]/\1'"${num_tty}"'/g' > "$rootfs/etc/systemd/system/getty-static.service"
     fi
 
     # This function has been copied and adapted from lxc-fedora
-    rm -f ${rootfs}/etc/systemd/system/default.target
-    touch ${rootfs}/etc/fstab
-    chroot ${rootfs} ln -s /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
-    # Make systemd honor SIGPWR
-    chroot ${rootfs} ln -s /lib/systemd/system/halt.target /etc/systemd/system/sigpwr.target
-    # Setup getty service on the 4 ttys we are going to allow in the
+    rm -f "${rootfs}/etc/systemd/system/default.target"
+    chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/udev.service
+    chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/systemd-udevd.service
+    chroot "${rootfs}" ln -s /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
+    # Setup getty service on the ttys we are going to allow in the
     # default config.  Number should match lxc.tty
-    ( cd ${rootfs}/etc/systemd/system/getty.target.wants
-        for i in 1 2 3 4 ; do ln -sf ../getty\@.service getty@tty${i}.service; done )
+    ( cd "${rootfs}/etc/systemd/system/getty.target.wants"
+        for i in $(seq 1 "$num_tty") ; do ln -sf ../getty\@.service getty@tty"${i}".service; done )
+
+    # Since we use static-getty.target; we need to mask container-getty@.service generated by
+    # container-getty-generator, so we don't get multiple instances of agetty running.
+    # See https://github.com/lxc/lxc/issues/520 and https://github.com/lxc/lxc/issues/484
+    ( cd "${rootfs}/etc/systemd/system/getty.target.wants"
+        for i in $(seq 0 "$num_tty"); do ln -sf /dev/null container-getty\@"${i}".service; done )
 
     return 0
 }
 
 cleanup()
 {
-    rm -rf $cache/partial-$release-$arch
-    rm -rf $cache/rootfs-$release-$arch
+    rm -rf "$cache/partial-$release-$arch"
+    rm -rf "$cache/rootfs-$release-$arch"
 }
 
 download_debian()
@@ -280,7 +290,7 @@ openssh-server
                 ;;
         esac
         wget https://ftp-master.debian.org/keys/${gpgkeyname}.asc -O - --quiet \
-            | gpg --import --no-default-keyring --keyring=${releasekeyring}
+            | gpg --import --no-default-keyring --keyring="${releasekeyring}"
     fi
     # check the mini debian was not already downloaded
     mkdir -p "$cache/partial-$release-$arch"
@@ -291,9 +301,9 @@ openssh-server
 
     # download a mini debian into a cache
     echo "Downloading debian minimal ..."
-    qemu-debootstrap --verbose --variant=minbase --arch=$arch \
-        --include=$packages --keyring=${releasekeyring} \
-        "$release" "$cache/partial-$release-$arch" $MIRROR
+    debootstrap --verbose --variant=minbase --arch="$arch" \
+        --include="$packages" --keyring="${releasekeyring}" \
+        "$release" "$cache/partial-$release-$arch" "$MIRROR"
     if [ $? -ne 0 ]; then
         echo "Failed to download the rootfs, aborting."
         return 1
@@ -318,17 +328,17 @@ copy_debian()
 
     # make a local copy of the minidebian
     echo -n "Copying rootfs to $rootfs..."
-    mkdir -p $rootfs
-    rsync -SHaAX "$cache/rootfs-$release-$arch"/ $rootfs/ || return 1
+    mkdir -p "$rootfs"
+    rsync -SHaAX "$cache/rootfs-$release-$arch"/ "$rootfs"/ || return 1
     return 0
 }
 
 install_debian()
 {
-    cache="$LOCALSTATEDIR/cache/lxc/debian"
     rootfs=$1
     release=$2
     arch=$3
+    cache="$4/debian"
     mkdir -p $LOCALSTATEDIR/lock/subsys/
     (
         flock -x 9
@@ -339,14 +349,14 @@ install_debian()
 
         echo "Checking cache download in $cache/rootfs-$release-$arch ... "
         if [ ! -e "$cache/rootfs-$release-$arch" ]; then
-            download_debian $cache $arch $release
+            download_debian "$cache" "$arch" "$release"
             if [ $? -ne 0 ]; then
                 echo "Failed to download 'debian base'"
                 return 1
             fi
         fi
 
-        copy_debian $cache $arch $rootfs $release
+        copy_debian "$cache" "$arch" "$rootfs" "$release"
         if [ $? -ne 0 ]; then
             echo "Failed to copy rootfs"
             return 1
@@ -365,35 +375,33 @@ copy_configuration()
     rootfs=$2
     hostname=$3
     arch=$4
+    num_tty=$5
 
     # Generate the configuration file
-    ## Create the fstab (empty by default)
-    touch $path/fstab
-
     # if there is exactly one veth network entry, make sure it has an
     # associated hwaddr.
-    nics=`grep -e '^lxc\.network\.type[ \t]*=[ \t]*veth' $path/config | wc -l`
-    if [ $nics -eq 1 ]; then
-        grep -q "^lxc.network.hwaddr" $path/config || sed -i -e "/^lxc\.network\.type[ \t]*=[ \t]*veth/a lxc.network.hwaddr = 00:16:3e:$(openssl rand -hex 3| sed 's/\(..\)/\1:/g; s/.$//')" $path/config
+    nics=$(grep -ce '^lxc\.network\.type[ \t]*=[ \t]*veth' "$path/config")
+    if [ "$nics" -eq 1 ]; then
+        grep -q "^lxc.network.hwaddr" "$path/config" || sed -i -e "/^lxc\.network\.type[ \t]*=[ \t]*veth/a lxc.network.hwaddr = 00:16:3e:$(openssl rand -hex 3| sed 's/\(..\)/\1:/g; s/.$//')" "$path/config"
     fi
 
     ## Add all the includes
-    echo "" >> $path/config
-    echo "# Common configuration" >> $path/config
+    echo "" >> "$path/config"
+    echo "# Common configuration" >> "$path/config"
     if [ -e "${LXC_TEMPLATE_CONFIG}/debian.common.conf" ]; then
-        echo "lxc.include = ${LXC_TEMPLATE_CONFIG}/debian.common.conf" >> $path/config
+        echo "lxc.include = ${LXC_TEMPLATE_CONFIG}/debian.common.conf" >> "$path/config"
     fi
     if [ -e "${LXC_TEMPLATE_CONFIG}/debian.${release}.conf" ]; then
-        echo "lxc.include = ${LXC_TEMPLATE_CONFIG}/debian.${release}.conf" >> $path/config
+        echo "lxc.include = ${LXC_TEMPLATE_CONFIG}/debian.${release}.conf" >> "$path/config"
     fi
 
     ## Add the container-specific config
-    echo "" >> $path/config
-    echo "# Container specific configuration" >> $path/config
-    grep -q "^lxc.rootfs" $path/config 2> /dev/null || echo "lxc.rootfs = $rootfs" >> $path/config
+    echo "" >> "$path/config"
+    echo "# Container specific configuration" >> "$path/config"
+    grep -q "^lxc.rootfs" "$path/config" 2> /dev/null || echo "lxc.rootfs = $rootfs" >> "$path/config"
 
     cat <<EOF >> $path/config
-lxc.mount = $path/fstab
+lxc.tty = $num_tty
 lxc.utsname = $hostname
 lxc.arch = $arch
 EOF
@@ -412,13 +420,14 @@ post_process()
     local release="$1"; shift
     local arch="$1"; shift
     local hostarch="$1"; shift
+    local packages="$*"
 
     # Disable service startup
-    cat > ${rootfs}/usr/sbin/policy-rc.d << EOF
+    cat > "${rootfs}/usr/sbin/policy-rc.d" << EOF
 #!/bin/sh
 exit 101
 EOF
-    chmod +x ${rootfs}/usr/sbin/policy-rc.d
+    chmod +x "${rootfs}/usr/sbin/policy-rc.d"
 
     # If the container isn't running a native architecture, setup multiarch
     if [ "${arch}" != "${hostarch}" ]; then
@@ -429,24 +438,31 @@ EOF
     fi
 
     # Write a new sources.list containing both native and multiarch entries
-    > ${rootfs}/etc/apt/sources.list
+    > "${rootfs}/etc/apt/sources.list"
     if [ "${arch}" = "${hostarch}" ]; then
-        write_sourceslist ${rootfs} ${release} ${arch}
+        write_sourceslist "${rootfs}" "${release}" "${arch}"
     else
-        write_sourceslist ${rootfs} ${release}
+        write_sourceslist "${rootfs}" "${release}"
+    fi
+
+    # Install Packages in container
+    if [ -n "${packages}" ]; then
+        local pack_list
+        pack_list="${packages//,/ }"
+        echo "Installing packages: ${pack_list}"
+        install_packages "${rootfs}" "${pack_list}"
     fi
 
     # Re-enable service startup
-    rm ${rootfs}/usr/sbin/policy-rc.d
-
+    rm "${rootfs}/usr/sbin/policy-rc.d"
     # end
 }
 
 clean()
 {
-    cache="$LOCALSTATEDIR/cache/lxc/debian"
+    cache=${LXC_CACHE_PATH:-"$LOCALSTATEDIR/cache/lxc/debian"}
 
-    if [ ! -e $cache ]; then
+    if [ ! -e "$cache" ]; then
         exit 0
     fi
 
@@ -459,7 +475,7 @@ clean()
         fi
 
         echo -n "Purging the download cache..."
-        rm --preserve-root --one-file-system -rf $cache && echo "Done." || exit 1
+        rm --preserve-root --one-file-system -rf "$cache" && echo "Done." || exit 1
         exit 0
 
     ) 9>$LOCALSTATEDIR/lock/subsys/lxc-debian
@@ -474,6 +490,7 @@ Template specific options can be passed to lxc-create after a '--' like this:
 
 Usage: $1 -h|--help -p|--path=<path> [-c|--clean] [-a|--arch=<arch>] [-r|--release=<release>]
                                      [--mirror=<mirror>] [--security-mirror=<security mirror>]
+                                     [--package=<package_name1,package_name2,...>]
 
 Options :
 
@@ -488,7 +505,10 @@ Options :
   --security-mirror=SECURITY_MIRROR
                          Debian mirror to use for security updates. Overrides the
                          SECURITY_MIRROR environment variable (see below).
+  --packages=PACKAGE_NAME1,PACKAGE_NAME2,...
+                         List of additional packages to install. Comma separated, without space.
   -c, --clean            only clean up the cache and terminate
+  --enable-non-free      include also Debian's contrib and non-free repositories.
 
 Environment variables:
 
@@ -501,12 +521,14 @@ EOF
     return 0
 }
 
-options=$(getopt -o hp:n:a:r:c -l arch:,clean,help,mirror:,name:,path:,release:,rootfs:,security-mirror: -- "$@")
+options=$(getopt -o hp:n:a:r:c -l arch:,clean,help,enable-non-free,mirror:,name:,packages:,path:,release:,rootfs:,security-mirror: -- "$@")
 if [ $? -ne 0 ]; then
-        usage $(basename $0)
+        usage "$(basename "$0")"
         exit 1
 fi
 eval set -- "$options"
+
+littleendian=$(lscpu | grep '^Byte Order' | grep -q Little && echo yes)
 
 arch=$(uname -m)
 if [ "$arch" = "i686" ]; then
@@ -521,19 +543,26 @@ elif [ "$arch" = "ppc" ]; then
     arch="powerpc"
 elif [ "$arch" = "ppc64le" ]; then
     arch="ppc64el"
+elif [ "$arch" = "mips" -a "$littleendian" = "yes" ]; then
+    arch="mipsel"
+elif [ "$arch" = "mips64" -a "$littleendian" = "yes" ]; then
+    arch="mips64el"
 fi
 hostarch=$arch
+mainonly=1
 
 while true
 do
     case "$1" in
-        -h|--help)            usage $0 && exit 1;;
+        -h|--help)            usage "$0" && exit 1;;
            --)                shift 1; break ;;
 
         -a|--arch)            arch=$2; shift 2;;
         -c|--clean)           clean=1; shift 1;;
+           --enable-non-free) mainonly=0; shift 1;;
            --mirror)          MIRROR=$2; shift 2;;
         -n|--name)            name=$2; shift 2;;
+           --packages)        packages=$2; shift 2;;
         -p|--path)            path=$2; shift 2;;
         -r|--release)         release=$2; shift 2;;
            --rootfs)          rootfs=$2; shift 2;;
@@ -587,46 +616,52 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-release=${release:-stable}
-permanent_releases=('stable' 'testing' 'sid' 'unstable')
-if [[ ! "${permanent_releases[*]}" =~ (^|[^[:alpha:]])$release([^[:alpha:]]|$) ]]; then
-    if ! wget "${MIRROR}/dists/${release}/Release" -O /dev/null 2> /dev/null; then
-	echo "Invalid release ${release} (not found in mirror)"
-	exit 1
-    fi
+current_release=$(wget "${MIRROR}/dists/stable/Release" -O - 2> /dev/null | head |awk '/^Codename: (.*)$/ { print $2; }')
+release=${release:-${current_release}}
+valid_releases=('wheezy' 'jessie' 'stretch' 'buster' 'testing' 'sid' 'unstable')
+if [[ ! "${valid_releases[*]}" =~ (^|[^[:alpha:]])$release([^[:alpha:]]|$) ]]; then
+    echo "Invalid release ${release}, valid ones are: ${valid_releases[*]}"
+    exit 1
 fi
 
 # detect rootfs
 config="$path/config"
 if [ -z "$rootfs" ]; then
-    if grep -q '^lxc.rootfs' $config 2> /dev/null ; then
-        rootfs=$(awk -F= '/^lxc.rootfs =/{ print $2 }' $config)
+    if grep -q '^lxc.rootfs' "$config" 2> /dev/null ; then
+        rootfs=$(awk -F= '/^lxc.rootfs[ \t]+=/{ print $2 }' "$config")
     else
         rootfs=$path/rootfs
     fi
 fi
 
-install_debian $rootfs $release $arch
+# determine the number of ttys - default is 4
+if grep -q '^lxc.tty' "$config" 2> /dev/null ; then
+    num_tty=$(awk -F= '/^lxc.tty[ \t]+=/{ print $2 }' "$config")
+else
+    num_tty=4
+fi
+
+install_debian "$rootfs" "$release" "$arch" "$LXC_CACHE_PATH"
 if [ $? -ne 0 ]; then
     echo "failed to install debian"
     exit 1
 fi
 
-configure_debian $rootfs $name
+configure_debian "$rootfs" "$name" $num_tty
 if [ $? -ne 0 ]; then
     echo "failed to configure debian for a container"
     exit 1
 fi
 
-copy_configuration $path $rootfs $name $arch
+copy_configuration "$path" "$rootfs" "$name" $arch $num_tty
 if [ $? -ne 0 ]; then
     echo "failed write configuration file"
     exit 1
 fi
 
-configure_debian_systemd $path $rootfs
+configure_debian_systemd "$path" "$rootfs" "$config" $num_tty
 
-post_process ${rootfs} ${release} ${arch} ${hostarch}
+post_process "${rootfs}" "${release}" "${arch}" "${hostarch}" "${packages}"
 
 if [ ! -z "$clean" ]; then
     clean || exit 1
