@@ -36,8 +36,12 @@ export GREP_OPTIONS=""
 
 MIRROR=${MIRROR:-http://deb.debian.org/debian}
 SECURITY_MIRROR=${SECURITY_MIRROR:-http://security.debian.org/}
-LOCALSTATEDIR="@LOCALSTATEDIR@"
-LXC_TEMPLATE_CONFIG="@LXCTEMPLATECONFIG@"
+# region @maruos
+# LOCALSTATEDIR="@LOCALSTATEDIR@"
+# LXC_TEMPLATE_CONFIG="@LXCTEMPLATECONFIG@"
+LOCALSTATEDIR="/var"
+LXC_TEMPLATE_CONFIG="/usr/share/lxc/config"
+# endregion
 # Allows the lxc-cache directory to be set by environment variable
 LXC_CACHE_PATH=${LXC_CACHE_PATH:-"$LOCALSTATEDIR/cache/lxc"}
 
@@ -222,8 +226,10 @@ configure_debian_systemd()
 
     # This function has been copied and adapted from lxc-fedora
     rm -f "${rootfs}/etc/systemd/system/default.target"
-    chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/udev.service
-    chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/systemd-udevd.service
+    # region @maruos
+    # chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/udev.service
+    # chroot "${rootfs}" ln -s /dev/null /etc/systemd/system/systemd-udevd.service
+    # endregion
     chroot "${rootfs}" ln -s /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
     # Setup getty service on the ttys we are going to allow in the
     # default config.  Number should match lxc.tty
@@ -301,9 +307,14 @@ openssh-server
 
     # download a mini debian into a cache
     echo "Downloading debian minimal ..."
-    debootstrap --verbose --variant=minbase --arch="$arch" \
+    # region @maruos
+    # debootstrap --verbose --variant=minbase --arch="$arch" \
+    #     --include="$packages" --keyring="${releasekeyring}" \
+    #     "$release" "$cache/partial-$release-$arch" "$MIRROR"
+    qemu-debootstrap --verbose --variant=minbase --arch="$arch" \
         --include="$packages" --keyring="${releasekeyring}" \
         "$release" "$cache/partial-$release-$arch" "$MIRROR"
+    # endregion
     if [ $? -ne 0 ]; then
         echo "Failed to download the rootfs, aborting."
         return 1
