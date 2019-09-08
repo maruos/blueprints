@@ -99,7 +99,7 @@ if workaround_909498 ; then
     cat > /etc/apt/sources.list.d/jessie.list <<EOF
 deb http://security.debian.org/debian-security jessie/updates main
 EOF
-    recommends_min="${recommends_min/firefox-esr/firefox-esr/oldstable}"
+    recommends_min="${recommends_min/firefox-esr/firefox-esr/jessie}"
 fi
 
 recommends="$recommends_min
