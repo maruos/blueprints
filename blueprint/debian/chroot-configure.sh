@@ -137,9 +137,6 @@ apt-get -y purge xscreensaver xscreensaver-data
 echo "[*] Configuring system..."
 
 echo "  [*] Disabling sshd..."
-# disable sshd services by default
-# systemd syncs with sysvinit so use update-rc.d too
-/usr/sbin/update-rc.d ssh disable
 if [ -e /etc/systemd/system/sshd.service ] ; then
     rm /etc/systemd/system/sshd.service
 fi

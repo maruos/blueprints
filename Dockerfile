@@ -1,14 +1,14 @@
-FROM debian:stretch
+FROM debian:buster
 
-RUN apt-get update && apt-get install -y \
+RUN dpkg --add-architecture i386 \
+&& apt-get update && apt-get install -y \
     binfmt-support \
     debootstrap \
     fakeroot \
     git \
     lxc \
     make \
-    qemu \
-    qemu-user-static \
+    qemu-user-static:i386 \
     ubuntu-archive-keyring \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/*

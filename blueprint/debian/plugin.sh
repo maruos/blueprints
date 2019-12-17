@@ -17,13 +17,8 @@
 
 readonly BLUEPRINT_NAME="DEBIAN"
 
-readonly DEFAULT_RELEASE="stretch"
+readonly DEFAULT_RELEASE="buster"
 readonly DEFAULT_ARCH="armhf"
-
-# tweaks to upstream template, must be absolute path
-# note: this is only used because older versions of LXC do not support
-# cross-debootstrapping in the debian template
-readonly LXC_TEMPLATE_OVERRIDE="$(readlink -f lxc/templates/debian.sh)"
 
 # script to run inside the chroot
 readonly CHROOT_SCRIPT="chroot-configure.sh"
@@ -56,8 +51,21 @@ bootstrap () {
     local arch="$4"
 
     pecho "bootstrapping rootfs..."
-    lxc-create -t "$LXC_TEMPLATE_OVERRIDE" -n "$name" --dir "$rootfs" -- \
-        -a "$arch" -r "$release"
+    mkdir -p "$rootfs"
+    lxc-create -t download -n "$name" --dir "$rootfs" -- \
+        --dist debian --arch "$arch" --release "$release"
+}
+
+chroot_mount () {
+    local rootfs="$1"
+    mount -t proc proc "${rootfs}/proc"
+    mount --bind /dev "${rootfs}/dev"
+}
+
+chroot_umount () {
+    local rootfs="$1"
+    umount -q "${rootfs}/proc"
+    umount -q "${rootfs}/dev"
 }
 
 configure () {
@@ -103,7 +111,9 @@ EOF
         script_args="${script_args} --minimal"
     fi
 
+    chroot_mount "$rootfs"
     chroot "$rootfs" bash -c "cd /tmp && ./${CHROOT_SCRIPT} $script_args"
+    chroot_umount "$rootfs"
 }
 
 blueprint_build () {
@@ -150,6 +160,9 @@ blueprint_cleanup () {
 
     # clean up any debpkg artifacts
     make clean >/dev/null
+
+    # clean up any dangling mounts
+    chroot_umount "$rootfs" || true
 
     # destroy persistent lxc object
     if [ -d "/var/lib/lxc/${name}" ] ; then
