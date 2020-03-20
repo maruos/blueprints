@@ -30,9 +30,9 @@ Build the default container:
 
     $ ./build.sh
 
-Build a minimal Debian arm64 stretch container called "stretch-container":
+Build a minimal Debian arm64 buster container called "buster-container":
 
-    $ ./build.sh -b debian -n stretch-container -- -r stretch -a arm64 --minimal
+    $ ./build.sh -b debian -n buster-container -- -r buster -a arm64 --minimal
 
 *Tip: You will need root privileges to mount binfmt_misc for bootstrapping
 foreign architecture containers.*
@@ -44,10 +44,10 @@ If you have Docker set up on your machine, just substitute `./build.sh` with
 necessary dependencies pre-installed. All args will be passed to `build.sh` just
 like usual.
 
-Build a Debian arm64 stretch container called "stretch-container" with Docker
+Build a Debian arm64 buster container called "buster-container" with Docker
 (args will be passed to `build.sh`):
 
-    $ ./build-with-docker.sh -b debian -n stretch-container -- -r stretch -a arm64 --minimal
+    $ ./build-with-docker.sh -b debian -n buster-container -- -r buster -a arm64 --minimal
 
 To stop the build early you can run:
 
