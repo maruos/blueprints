@@ -5,5 +5,5 @@ services:
     - docker
 
 script:
-    - ./build-with-docker.sh
     - ./build-with-docker.sh -b debian -n buster-container -- -r buster -a arm64 --minimal
+    - ./build-with-docker.sh
