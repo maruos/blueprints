@@ -1,9 +1,16 @@
 os: linux
 dist: focal
 
+env:
+    - CIINSTALL=yes MARUARCH=1
+    - CIINSTALL=yes MARUARCH=2
 services:
     - docker
 
 script:
-    - ./build-with-docker.sh -b debian -n buster-container -- -r buster -a arm64 --minimal
-    - ./build-with-docker.sh
+    - if [[ $MARUARCH -eq 1 ]]; then
+        ./build-with-docker.sh;
+      fi;
+    - if [[ $MARUARCH -eq 2 ]]; then
+        ./build-with-docker.sh -b debian -n buster-container -- -r buster -a arm64 --minimal;
+      fi;
