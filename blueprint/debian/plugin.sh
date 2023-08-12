@@ -52,6 +52,7 @@ bootstrap () {
 
     pecho "bootstrapping rootfs..."
     mkdir -p "$rootfs"
+    DOWNLOAD_KEYSERVER="keyserver.ubuntu.com" \
     lxc-create -t download -n "$name" --dir "$rootfs" -- \
         --dist debian --arch "$arch" --release "$release"
 }
