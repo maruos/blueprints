@@ -1,6 +1,6 @@
 # Maru OS Container Blueprints
 
-[![Build Status](https://travis-ci.org/maruos/blueprints.svg?branch=master)](https://travis-ci.org/maruos/blueprints)
+![CI workflow](https://github.com/maruos/blueprints/actions/workflows/ci.yml/badge.svg)
 
 Container image builder for Maru OS.
 
