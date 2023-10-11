@@ -14,6 +14,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Build CI container
         run: 'docker build -t maruos/blueprints/ci --file Dockerfile.aarch64 .'
-      - name: Build Debian Buster arm64
+      - name: Build Debian Buster arm64 minimal
         run: 'docker run --privileged --rm -v /var/cache:/var/cache -v "$(pwd)":/var/maru -i maruos/blueprints/ci -b debian -n buster-container -- -r buster -a arm64 --minimal'
+      - name: Build Debian Buster arm64
+        run: 'docker run --privileged --rm -v /var/cache:/var/cache -v "$(pwd)":/var/maru -i maruos/blueprints/ci -b debian -n buster-container -- -r buster -a arm64'
 
