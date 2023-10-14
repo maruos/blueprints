@@ -18,4 +18,9 @@ jobs:
         run: 'docker run --privileged --rm -v /var/cache:/var/cache -v "$(pwd)":/var/maru -i maruos/blueprints/ci -b debian -n buster-container -- -r buster -a arm64 --minimal'
       - name: Build Debian Buster arm64
         run: 'docker run --privileged --rm -v /var/cache:/var/cache -v "$(pwd)":/var/maru -i maruos/blueprints/ci -b debian -n buster-container -- -r buster -a arm64'
-
+      - name: Upload generated rootfs tarball
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: buster-container-arm64
+          path: out/*.tar.gz
